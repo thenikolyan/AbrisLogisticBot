@@ -1,4 +1,4 @@
-schema = '''
+description = '''
 create schema if not exists logistic;
 
 create table if not exists logistic.users(

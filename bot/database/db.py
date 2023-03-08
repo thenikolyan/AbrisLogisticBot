@@ -6,7 +6,17 @@ import sqlalchemy
 import psycopg2
 import pandas as pd
 
-from schema import schema
+description = '''
+create schema if not exists logistic;
+
+create table if not exists logistic.users(
+    id bigint primary key,
+    name text not null,
+    surname text not null,
+    second_name text not null,
+    role text not null 
+) 
+'''
 
 #путь к файлу с данными для входа
 dotenv_path = Path(rf'.\.env')
@@ -17,7 +27,7 @@ engine = sqlalchemy.create_engine(os.getenv('engine', 'default') % os.getenv('dp
 autocommit_engine = engine.execution_options(isolation_level="AUTOCOMMIT")
 
 
-def server(flag):
+def server(flag: bool):
 
     params = {
         'database': os.getenv('db_name', 'default'),
@@ -39,16 +49,17 @@ def server(flag):
     
 
 def dbCreate():
+    global cur, conn
     cur = server(False)
     conn = server(True)
 
-    cur.execute(schema)
+    cur.execute(description)
     conn.commit()  
 
 
-def insertUser(user: dict):
+async def insertUser(user: dict, engine):
 
-    pd.DataFrame(user).to_sql(name='users', schema='logistic', con=engine, if_exists='append', index=False,
+    pd.DataFrame([user]).to_sql(name='users', schema='logistic', con=engine, if_exists='append', index=False,
                                 dtype={'id': sqlalchemy.BigInteger(),
                                        'name': sqlalchemy.Text(),
                                        'surname': sqlalchemy.Text(),
@@ -56,3 +67,6 @@ def insertUser(user: dict):
                                        'role': sqlalchemy.Text(),
                                        })
     
+
+async def getIdRoleUser(uid):
+    return (pd.read_sql(f"select id, role from logistic.users where id = {uid}", conn))

@@ -1,23 +1,21 @@
-import os
-from dotenv import load_dotenv
-from pathlib import Path
+import asyncio
+from createBot import dp
+from aiogram.utils import executor
+from database import db, schema
 
-from pyrogram import Client
-
-#путь к файлу с данными для входа
-dotenv_path = Path(rf'.\.env')
-load_dotenv(dotenv_path=dotenv_path)
-
-#переменные для запуска бота
-api_id = os.getenv('api_id', 'default')
-api_hash = os.getenv('api_hash', 'default')
-bot_token = os.getenv('token', 'default')
-
-app = Client("AbrisLogisticBot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+from handlers import common
 
 
-app.start()
+async def on_startup(_):
+    db.dbCreate()
+    print("Запустился!")
 
-app.send_message(chat_id="@thenikolyan", text="Напиши, если сообщение пришло")
 
-app.stop()
+# clients.register_handlers_clients(dp)
+# categories.register_handlers_clients(dp)
+common.register_handlers_clients(dp)
+
+
+if __name__ == "__main__":
+    # start bot
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
