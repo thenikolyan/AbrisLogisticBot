@@ -1,3 +1,4 @@
+print(0)
 import os
 from dotenv import load_dotenv
 from pathlib import Path
