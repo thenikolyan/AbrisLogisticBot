@@ -1,4 +1,3 @@
-print(0)
 import os
 from dotenv import load_dotenv
 from pathlib import Path
@@ -6,7 +5,7 @@ from pathlib import Path
 from pyrogram import Client
 
 #путь к файлу с данными для входа
-dotenv_path = Path(rf'C:\Users\PythonN\Desktop\AbrisLogisticBot\.env')
+dotenv_path = Path(rf'.\.env')
 load_dotenv(dotenv_path=dotenv_path)
 
 #переменные для запуска бота
