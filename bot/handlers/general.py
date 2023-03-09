@@ -22,17 +22,29 @@ async def welcome(message: types.Message, state: FSMContext):
     message_text = text(f'Добро пожаловать, {message.from_user.username}!')
 
     inkb = types.InlineKeyboardMarkup(row_width=1)
-    button = [
+    button_auth = [
         types.InlineKeyboardButton(text='Зарегистрироваться', callback_data='addUser'),
         InlineKeyboardButton(text='Отмена', callback_data='cancel'),
     ]
+
+    button_driver = [
+        types.InlineKeyboardButton(text='Просмотр маршрутов', callback_data='chooseDirect'),
+        InlineKeyboardButton(text='Отмена', callback_data='cancel'),
+    ]
+
+    button_admin = [
+        types.InlineKeyboardButton(text='Панель управления', callback_data='controlPanel'),
+        InlineKeyboardButton(text='Отмена', callback_data='cancel'),
+    ]
+    button_cancel = [InlineKeyboardButton(text='Отмена', callback_data='cancel')]
+
     user = await db.getIdRoleUser(message.from_user.id)
     if user.empty:
         await bot.send_message(
             message.from_user.id,
             message_text,
             parse_mode=ParseMode.MARKDOWN,
-            reply_markup=inkb.add(*button),
+            reply_markup=inkb.add(*button_auth),
         )
     else:
         user = user.to_dict('records')[0]
@@ -42,28 +54,28 @@ async def welcome(message: types.Message, state: FSMContext):
                 message.from_user.id,
                 message_text + ' Ваша роль: администратор.',
                 parse_mode=ParseMode.MARKDOWN,
-                #reply_markup=inkb.add(*button),
+                reply_markup=inkb.add(*button_admin),
             )
         elif user['role'] == 'driver':
             await bot.send_message(
                 message.from_user.id,
                 message_text + ' Ваша роль: водитель.',
                 parse_mode=ParseMode.MARKDOWN,
-                #reply_markup=inkb.add(*button),
+                reply_markup=inkb.add(*button_driver),
             )
         elif user['role'] == 'unauthtorized':
             await bot.send_message(
                 message.from_user.id,
                 message_text + '\nОжидайте подтвеждение администратора.',
                 parse_mode=ParseMode.MARKDOWN,
-                #reply_markup=inkb.add(*button),
+                reply_markup=inkb.add(*button_cancel),
             )
         else:
                 await bot.send_message(
                 message.from_user.id,
                 message_text,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=inkb.add(*button),
+                reply_markup=inkb.add(*button_auth),
             )
 
 
@@ -87,28 +99,6 @@ async def initials(callback: types.CallbackQuery, state=None):
 
     await User.next()
 
-
-# async def role(message: types.Message, state: FSMContext):
-#     await bot.delete_message(message.from_user.id, message.message_id-1)
-
-#     async with state.proxy() as data:
-#         data['initials'] = message.text
-
-#     message_text = text(f'''Выбирите роль для регистрируемого пользователя:''')
-
-#     inkb = types.InlineKeyboardMarkup(row_width=2)
-#     button = [types.InlineKeyboardButton(text='Водитель', callback_data='driver'),
-#               types.InlineKeyboardButton(text='Администратор', callback_data='admin'),
-#               types.InlineKeyboardButton(text='Отмена', callback_data='cancel')]
-
-#     await bot.send_message(
-#         message.from_user.id,
-#         message_text,
-#         parse_mode=ParseMode.MARKDOWN,
-#         reply_markup=inkb.add(*button),
-#     )
-
-#     await User.next()
 
 
 async def goodbye(message: types.Message, state: FSMContext):

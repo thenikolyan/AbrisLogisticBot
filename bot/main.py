@@ -3,17 +3,15 @@ from createBot import dp
 from aiogram.utils import executor
 from database import db, schema
 
-from handlers import common
-
+from handlers import general, admin
 
 async def on_startup(_):
     db.dbCreate()
     print("Запустился!")
 
 
-# clients.register_handlers_clients(dp)
-# categories.register_handlers_clients(dp)
-common.register_handlers_clients(dp)
+general.register_handlers_clients(dp)
+admin.register_handlers_clients(dp)
 
 
 if __name__ == "__main__":

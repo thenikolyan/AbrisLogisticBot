@@ -69,4 +69,11 @@ async def insertUser(user: dict, engine):
     
 
 async def getIdRoleUser(uid):
-    return (pd.read_sql(f"select id, role from logistic.users where id = {uid}", conn))
+    return (pd.read_sql(f'''select id, role from logistic.users where "id" = {uid}''', conn))
+
+
+async def getUnauthorizedUsers():
+    return (pd.read_sql(f'''select * from logistic.users where "role" = 'unauthtorized' ''', conn))
+
+async def updateUnauthorizedUsers(id, role):
+    return (pd.read_sql(f'''update logistic.users set role='{role}' where "id"={id}''', conn))
