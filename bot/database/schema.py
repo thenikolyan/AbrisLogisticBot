@@ -10,12 +10,12 @@ create table if not exists logistic.users(
 );
 
 create table if not exists logistic.routes(
-    id serial primary key,
+    id SERIAL primary key,
     route text not null
 ); 
 
 create table if not exists logistic.drivers_with_routes(
-    id serial primary key,
-    route text not null
+    id_driver bigint not null,
+    id_route bigint not null
 );
 '''
