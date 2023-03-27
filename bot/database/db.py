@@ -63,10 +63,14 @@ async def insertUser(user: dict, engine):
                                 dtype={'id': sqlalchemy.BigInteger(),
                                        'name': sqlalchemy.Text(),
                                        'surname': sqlalchemy.Text(),
-                                       'second_name': sqlalchemy.Text(),
+                                       'patronymic': sqlalchemy.Text(),
                                        'role': sqlalchemy.Text(),
                                        })
-    
+
+async def updateUserRole(user: dict):
+    query = f''' update logistic.users set "role"='{user['role']}' where "id"={int(user['id'])}'''
+    cur.execute(query)
+    conn.commit()
 
 async def getIdRoleUser(uid):
     return (pd.read_sql(f'''select id, role from logistic.users where "id" = {uid}''', conn))
@@ -74,6 +78,11 @@ async def getIdRoleUser(uid):
 
 async def getUnauthorizedUsers():
     return (pd.read_sql(f'''select * from logistic.users where "role" = 'unauthtorized' ''', conn))
-
+async def getDrivers():
+    return (pd.read_sql(f'''select * from logistic.users where "role" = 'driver' ''', conn))
 async def updateUnauthorizedUsers(id, role):
     return (pd.read_sql(f'''update logistic.users set role='{role}' where "id"={id}''', conn))
+
+async def insertRoute(user: dict, engine):
+    pd.DataFrame([user]).to_sql(name='routes', schema='logistic', con=engine, if_exists='append', index=False,
+                                dtype={'route' : sqlalchemy.Text()})
