@@ -43,7 +43,7 @@ async def welcome(message: types.Message, state: FSMContext):
         await bot.send_message(
             message.from_user.id,
             message_text,
-            parse_mode=ParseMode.MARKDOWN,
+            parse_mode=ParseMode.HTML,
             reply_markup=inkb.add(*button_auth),
         )
     else:
@@ -53,28 +53,28 @@ async def welcome(message: types.Message, state: FSMContext):
             await bot.send_message(
                 message.from_user.id,
                 message_text + ' Ваша роль: администратор.',
-                parse_mode=ParseMode.MARKDOWN,
+                parse_mode=ParseMode.HTML,
                 reply_markup=inkb.add(*button_admin),
             )
         elif user['role'] == 'driver':
             await bot.send_message(
                 message.from_user.id,
                 message_text + ' Ваша роль: водитель.',
-                parse_mode=ParseMode.MARKDOWN,
+                parse_mode=ParseMode.HTML,
                 reply_markup=inkb.add(*button_driver),
             )
         elif user['role'] == 'unauthtorized':
             await bot.send_message(
                 message.from_user.id,
                 message_text + '\nОжидайте подтвеждение администратора.',
-                parse_mode=ParseMode.MARKDOWN,
+                parse_mode=ParseMode.HTML,
                 reply_markup=inkb.add(*button_cancel),
             )
         else:
                 await bot.send_message(
                 message.from_user.id,
                 message_text,
-                parse_mode=ParseMode.MARKDOWN,
+                parse_mode=ParseMode.HTML,
                 reply_markup=inkb.add(*button_auth),
             )
 
@@ -85,7 +85,7 @@ async def initials(callback: types.CallbackQuery, state=None):
     await state.finish()
     await User.initials.set()
 
-    message_text = text(f'''Введите ваше ФИО. \nПример: «{bold('Иванов Иван Иванович')}»''')
+    message_text = text(f'''Введите ваше ФИО. \nПример: «<b>Иванов Иван Иванович</b>»''')
 
     inkb = types.InlineKeyboardMarkup(row_width=2)
     button = [types.InlineKeyboardButton(text='Отмена', callback_data='cancel')]
@@ -93,18 +93,18 @@ async def initials(callback: types.CallbackQuery, state=None):
     await bot.send_message(
         callback.from_user.id,
         message_text,
-        parse_mode=ParseMode.MARKDOWN,
+        parse_mode=ParseMode.HTML,
         reply_markup=inkb.add(*button),
     )
 
     await User.next()
 
 
-
 async def goodbye(message: types.Message, state: FSMContext):
     await bot.delete_message(message.from_user.id, message.message_id)
 
     message_text = text(f'''Вы подали заявку на регистрацию в системе. \nОжидайте подтвеждение администратора.''')
+    message_text_for_admin = text(f'''Пользователь «<b>{message.text}</b> подал заявку на регистрацию в системе. \nПожалуйста, посмотрите!''')
 
     if len(message.text.split(' ')) == 3:
         fio = message.text.split(' ')[:3] 
@@ -118,14 +118,20 @@ async def goodbye(message: types.Message, state: FSMContext):
         await bot.send_message(
         message.from_user.id,
         message_text,
-        parse_mode=ParseMode.MARKDOWN
-    )
+        parse_mode=ParseMode.HTML)
+
+        user = await db.getAdmin()
+        for x in user.to_dict('records'):
+            await bot.send_message(
+            x['id'],
+            message_text_for_admin,
+            parse_mode=ParseMode.HTML)
+
     else:
         await bot.send_message(
         message.from_user.id,
         'Неправильно задано ФИО, начните заново /start',
-        parse_mode=ParseMode.MARKDOWN
-    )
+        parse_mode=ParseMode.HTML)
 
     await state.finish()
 

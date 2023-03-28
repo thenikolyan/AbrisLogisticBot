@@ -86,6 +86,10 @@ async def getIdRoleUser(uid):
     return (pd.read_sql(f'''select id, role from logistic.users where "id" = {uid}''', conn))
 
 
+async def getAdmin():
+    return (pd.read_sql(f'''select id from logistic.users where "role" = 'admin' ''', conn))
+
+
 async def getUnauthorizedUsers():
     return (pd.read_sql(f'''select * from logistic.users where "role" = 'unauthtorized' ''', conn))
 
@@ -110,6 +114,7 @@ async def getRoutes():
 async def insertDriverRoute(user: dict, engine):
     pd.DataFrame([user]).to_sql(name='catalog_routers', schema='logistic', con=engine, if_exists='append', index=False,
                                 dtype={'driver': sqlalchemy.Integer(), 'route': sqlalchemy.Integer()})
+
 
 async def getCatalogRoute():
     return (pd.read_sql(''' select use.surname, use.name, use.second_name, step.route from (select cat.driver, rou.route from ((select * from logistic.catalog_routers) as cat inner join logistic.routes as rou on (cat.route=rou.id))) as step inner join logistic.users as use on (step.driver=use.id) ''', conn))

@@ -13,7 +13,8 @@ from database import db
 
 
 class Role(StatesGroup):
-    start = State()
+    id = State()
+    role = State()
     end = State()
 
 
@@ -47,70 +48,96 @@ async def controlPanel(callback: types.CallbackQuery):
     await bot.send_message(
         callback.from_user.id,
         'Панель управления',
-        parse_mode=ParseMode.MARKDOWN,
+        parse_mode=ParseMode.HTML,
         reply_markup=inkb.add(*buttons),
     )
 
 
 async def approveRegistration(callback: types.CallbackQuery, state=None):
     await state.finish()
-    await Role.start.set()
+    await Role.id.set()
+
+    await bot.delete_message(callback.from_user.id, callback.message.message_id)
 
     users = await db.getUnauthorizedUsers()
-
+    print(users)
     if not users.empty:
+        users = users.sort_values(by='surname', ascending=False)
+
+        inkb = types.InlineKeyboardMarkup(row_width=1)
+        buttons = []
+
+        for x in users.to_dict('records'):
+            buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['second_name']} {x['name']}''', callback_data=str(x['id'])))
+        buttons.append(types.InlineKeyboardButton(text='Отмена', callback_data='cancel'))
+
         await bot.send_message(
             callback.from_user.id,
-            text=f'<code>{users.to_markdown(index=False)}</code>',
+            'Выберите пользователя, которому хотите назначить роль.',
             parse_mode=ParseMode.HTML,
-        )
-        await bot.send_message(
-            callback.from_user.id,
-            'Внесите id пользователя, регистрацию которого необходимо назначить (цифрами) и роль (admin/driver)\n Пример: 123445678 admin',
+            reply_markup=inkb.add(*buttons)
         )
 
         await Role.next()
     else:
         await bot.send_message(
             callback.from_user.id,
-            'На данный момент никто не ждет подтверждения регистрации.',
+            'На данный момент, никто не ожидает подтверждения регистрации.',
         )
         await state.finish()
         await controlPanel(callback)
 
 
-async def setRole(message: types.Message, state: FSMContext):
-    id, role = message.text.split(' ')
-    if role in ['admin', 'driver']:
+async def setRole(callback: types.CallbackQuery, state: FSMContext):
 
-        await db.updateUserRole({'id': id, 'role': role})
-        message_text = f''' Пользователю c id {id} присвоена роль {role} '''
+    await bot.delete_message(callback.from_user.id, callback.message.message_id)
+    
+    async with state.proxy() as data:
+        data['id'] = callback.data
 
-        inkb = types.InlineKeyboardMarkup(row_width=1)
-        buttons = [
-            types.InlineKeyboardButton(text='Отмена', callback_data='cancel'),
-        ]
-        await bot.send_message(
-            message.from_user.id,
-            message_text,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=inkb.add(*buttons),
-        )
-        await bot.send_message(
-            int(id),
-            f'Вам присвоена роль {role}.\n'
-            f'Чтобы начать работу, нажмите /start'
-        )
-        await state.finish()
-        await controlPanel(message)
-    else:
+    message_text = 'Пожалуйста, выберите роль.'
 
-        await bot.send_message(
-            message.from_user.id,
-            'Не верно введена роль.',
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        await approveRegistration(message, state)
+    inkb = types.InlineKeyboardMarkup(row_width=1)
+    buttons = [
+        types.InlineKeyboardButton(text='Администратор', callback_data='admin'),
+        types.InlineKeyboardButton(text='Водитель', callback_data='driver'),
+        types.InlineKeyboardButton(text='Не показывать', callback_data='clown'),
+        types.InlineKeyboardButton(text='Отмена', callback_data='cancel'),
+    ]
+    await bot.send_message(
+        callback.from_user.id,
+        message_text,
+        parse_mode=ParseMode.HTML,
+        reply_markup=inkb.add(*buttons),
+    )
+
+    await Role.next()
+
+
+async def endRole(callback: types.CallbackQuery, state: FSMContext):
+
+    async with state.proxy() as data:
+        data['role'] = callback.data
+
+    message_text = f'''Вам присвоена роль «<b>{data['role']}</b>». \nНажмите /start для продолжения работы.»'''
+    message_text_for_admin = f'''Роль «<b>{data['role']}</b>» успешно присвоена.'''
+
+    await db.updateUserRole({'id': int(data['id']), 'role': data['role']})
+                            
+    await bot.send_message(
+        int(data['id']),
+        message_text,
+        parse_mode=ParseMode.HTML,
+    )
+
+    await bot.send_message(
+        callback.from_user.id,
+        message_text_for_admin,
+        parse_mode=ParseMode.HTML,
+    )
+
+    await state.finish()
+    await controlPanel(callback)
 
 
 async def driversList(callback: types.CallbackQuery):
@@ -318,9 +345,11 @@ async def routesListDrivers(callback: types.CallbackQuery):
 
 def register_handlers_clients(dp: Dispatcher):
     dp.register_callback_query_handler(controlPanel, Text(equals='controlPanel', ignore_case=True))
-    dp.register_callback_query_handler(approveRegistration, Text(equals='approveRegistration', ignore_case=True),
-                                       state=None)
-    dp.register_message_handler(setRole, content_types=['text'], state=Role.end)
+
+    dp.register_callback_query_handler(approveRegistration, Text(equals='approveRegistration', ignore_case=True),state=None)
+    dp.register_callback_query_handler(setRole, state=Role.role)
+    dp.register_callback_query_handler(endRole, state=Role.end)
+
     dp.register_callback_query_handler(driversList, Text(equals='driversList', ignore_case=True), state=None)
 
     dp.register_callback_query_handler(createRoute, Text(equals='createRoute', ignore_case=True), state=None)
