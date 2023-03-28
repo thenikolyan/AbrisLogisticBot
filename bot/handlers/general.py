@@ -28,7 +28,7 @@ async def welcome(message: types.Message, state: FSMContext):
     ]
 
     button_driver = [
-        types.InlineKeyboardButton(text='Просмотр маршрутов', callback_data='chooseDirect'),
+        types.InlineKeyboardButton(text='Меню', callback_data='menuDriver'),
         InlineKeyboardButton(text='Отмена', callback_data='cancel'),
     ]
 

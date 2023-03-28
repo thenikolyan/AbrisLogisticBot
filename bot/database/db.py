@@ -113,3 +113,8 @@ async def insertDriverRoute(user: dict, engine):
 
 async def getCatalogRoute():
     return (pd.read_sql(''' select use.surname, use.name, use.second_name, step.route from (select cat.driver, rou.route from ((select * from logistic.catalog_routers) as cat inner join logistic.routes as rou on (cat.route=rou.id))) as step inner join logistic.users as use on (step.driver=use.id) ''', conn))
+
+
+
+async def getAttachedRoute(id):
+    return (pd.read_sql(f'''select step1.driver, rou.id, rou.route from (select * from logistic.catalog_routers where "driver"={int(id)})as step1 left join logistic.routes as rou on (step1.route=rou.id) ''', conn))
