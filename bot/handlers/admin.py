@@ -250,12 +250,13 @@ async def setRoute(callback: types.CallbackQuery, state=None):
 
     routes = await db.getRoutes()
     file_name = f'''tmp{hash('tmp')}'''
-    routes.to_excel(f'''./documents/{file_name}.xlsx''', index=False)
+
+    routes.to_excel(f'''./bot/documents/{file_name}.xlsx''', index=False)
 
     message_text = 'Пожалуйста: \n1) Откройте файл \n2) Выбирите «ID» маршрута \n3) Введите «ID» маршрута'
 
     await bot.send_document(chat_id=callback.from_user.id,
-                            document=InputFile(f'''./documents/{file_name}.xlsx'''),
+                            document=InputFile(f'''./bot/documents/{file_name}.xlsx'''),
                             caption=message_text
                             )
 
@@ -264,20 +265,22 @@ async def setRoute(callback: types.CallbackQuery, state=None):
 
     await SettingRoute.next()
 
-    os.remove(f'''./documents/{file_name}.xlsx''')
+    os.remove(f'''./bot/documents/{file_name}.xlsx''')
 
 
 async def chooseDriver(message: types.Message, state: FSMContext):
+
     try:
         async with state.proxy() as data:
-            data['id_route'] = int(message.text)
-
-        if not int(message.text) in list(data['routes'].id):
-            await bot.send_message(
-                chat_id=message.from_user.id,
-                text='Не верный «ID» маршрута. \nПовторно введите «ID» маршрута.'
-            )
-            await chooseDriver(message, state)
+            if not int(message.text) in list(data['routes'].id):
+                await bot.send_message(
+                    chat_id=message.from_user.id,
+                    text='Не верный «ID» маршрута. \nПовторно введите «ID» маршрута.'
+                )
+                await chooseDriver(message)
+            else:
+                data['id_route'] = int(message.text)
+                print(data)
 
         drivers = await db.getDrivers()
         if not drivers.empty:
@@ -307,18 +310,19 @@ async def chooseDriver(message: types.Message, state: FSMContext):
             await controlPanel(message)
 
     except ValueError:
+
         await bot.send_message(
             chat_id=message.from_user.id,
             text='Введите <b>ЧИСЛО</b> без пробелов или спецсимволов.',
             parse_mode=ParseMode.HTML
         )
-        await chooseDriver(message, state)
+        await chooseDriver(message)
 
     await SettingRoute.next()
 
 
 async def endSetRoute(callback: types.CallbackQuery, state: FSMContext):
-    await bot.delete_message(callback.from_user.id, callback.message.message_id)
+    #await bot.delete_message(callback.from_user.id, callback.message.message_id)
     async with state.proxy() as data:
         data['id_driver'] = int(callback.data)
 
@@ -333,20 +337,18 @@ async def endSetRoute(callback: types.CallbackQuery, state: FSMContext):
         )
 
         await bot.send_message(
-            chat_id=data['driver'],
+            chat_id=data['id_driver'],
             text=message_text
         )
 
-        await state.finish()
-        await controlPanel(callback)
     except sqlalchemy.exc.IntegrityError:
         await bot.send_message(
             chat_id=callback.from_user.id,
             text='Нельзя повторно назначать маршрут.'
         )
-        await setRoute(callback, state)
 
-
+    await state.finish()
+    await controlPanel(callback)
 
 
 async def routesList(callback: types.CallbackQuery):

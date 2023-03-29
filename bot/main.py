@@ -18,3 +18,4 @@ driver.register_handlers_clients(dp)
 if __name__ == "__main__":
     # start bot
     executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
+ 
