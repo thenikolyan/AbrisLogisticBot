@@ -306,7 +306,7 @@ async def chooseRoute(message: types.Message, state: FSMContext):
         )
         await setRoute(message)
     async with state.proxy() as data:
-        await db.insertDriverRoute({'id_driver': data['id_driver'], 'id_route': data['id_route']}, db.engine)
+        await db.insertDriverRoute({'driver': data['id_driver'], 'route': data['id_route']}, db.engine)
     await bot.send_message(
         message.from_user.id,
         text=f'Вы назначили маршрут',
