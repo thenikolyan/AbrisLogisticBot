@@ -102,16 +102,16 @@ async def updateUnauthorizedUsers(id, role):
     return (pd.read_sql(f'''update logistic.users set role='{role}' where "id"={id}''', conn))
 
 
-async def insertRoute(user: dict, engine):
+async def insertRoute(user: dict):
     pd.DataFrame([user]).to_sql(name='routes', schema='logistic', con=engine, if_exists='append', index=False,
                                 dtype={'id': sqlalchemy.Integer(), 'route': sqlalchemy.Text()})
 
 
 async def getRoutes():
-    return (pd.read_sql(f'''select * from logistic.routes ''', conn))
+    return (pd.read_sql(f''' select * from logistic.routes ''', conn))
 
 
-async def insertDriverRoute(user: dict, engine):
+async def setRoute(user: dict):
     pd.DataFrame([user]).to_sql(name='catalog_routers', schema='logistic', con=engine, if_exists='append', index=False,
                                 dtype={'driver': sqlalchemy.Integer(), 'route': sqlalchemy.Integer()})
 

@@ -1,12 +1,16 @@
+
+import os
 import time
 
-from aiogram.types import ParseMode, InlineKeyboardButton
+from aiogram.types import ParseMode
+from aiogram.types.input_file import InputFile
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
+
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from tabulate import tabulate
-
+import sqlalchemy
 from aiogram.utils.markdown import text, bold
 from createBot import bot
 from database import db
@@ -24,8 +28,9 @@ class Route(StatesGroup):
 
 
 class SettingRoute(StatesGroup):
-    id_driver = State()
+    routes = State()
     id_route = State()
+    id_driver = State()
 
 
 async def controlPanel(callback: types.CallbackQuery):
@@ -60,7 +65,6 @@ async def approveRegistration(callback: types.CallbackQuery, state=None):
     await bot.delete_message(callback.from_user.id, callback.message.message_id)
 
     users = await db.getUnauthorizedUsers()
-    print(users)
     if not users.empty:
         users = users.sort_values(by='surname', ascending=False)
 
@@ -68,7 +72,8 @@ async def approveRegistration(callback: types.CallbackQuery, state=None):
         buttons = []
 
         for x in users.to_dict('records'):
-            buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['second_name']} {x['name']}''', callback_data=str(x['id'])))
+            buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['name']} {x['second_name']}''',
+                                                      callback_data=str(x['id'])))
         buttons.append(types.InlineKeyboardButton(text='Отмена', callback_data='cancel'))
 
         await bot.send_message(
@@ -89,9 +94,8 @@ async def approveRegistration(callback: types.CallbackQuery, state=None):
 
 
 async def setRole(callback: types.CallbackQuery, state: FSMContext):
-
     await bot.delete_message(callback.from_user.id, callback.message.message_id)
-    
+
     async with state.proxy() as data:
         data['id'] = callback.data
 
@@ -115,15 +119,14 @@ async def setRole(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def endRole(callback: types.CallbackQuery, state: FSMContext):
-
     async with state.proxy() as data:
         data['role'] = callback.data
 
-    message_text = f'''Вам присвоена роль «<b>{data['role']}</b>». \nНажмите /start для продолжения работы.»'''
+    message_text = f'''Вам присвоена роль «<b>{data['role']}</b>». \nНажмите /start для продолжения работы.'''
     message_text_for_admin = f'''Роль «<b>{data['role']}</b>» успешно присвоена.'''
 
     await db.updateUserRole({'id': int(data['id']), 'role': data['role']})
-                            
+
     await bot.send_message(
         int(data['id']),
         message_text,
@@ -238,82 +241,112 @@ async def recordAddressRoute(message: types.Message, state: FSMContext):
         await controlPanel(message)
 
 
+# назначение маршрута
 async def setRoute(callback: types.CallbackQuery, state=None):
-    await state.finish()
-    drivers = await db.getDrivers()
-    await bot.send_message(
-        callback.from_user.id,
-        text='Список водителей',
-        parse_mode=ParseMode.HTML,
-    )
 
-    if not drivers.empty:
-        await bot.send_message(
-            callback.from_user.id,
-            text=f'<code>{drivers.to_markdown(index=False)}</code>',
-            parse_mode=ParseMode.HTML,
-        )
-    await bot.send_message(
-        callback.from_user.id,
-        text='Введите id водителя, которого хотите назначить',
-        parse_mode=ParseMode.HTML,
-    )
-    await SettingRoute.id_driver.set()
+
+    await state.finish()
+    await SettingRoute.routes.set()
+
+    routes = await db.getRoutes()
+    file_name = f'''tmp{hash('tmp')}'''
+    routes.to_excel(f'''./documents/{file_name}.xlsx''', index=False)
+
+    message_text = 'Пожалуйста: \n1) Откройте файл \n2) Выбирите «ID» маршрута \n3) Введите «ID» маршрута'
+
+    await bot.send_document(chat_id=callback.from_user.id,
+                            document=InputFile(f'''./documents/{file_name}.xlsx'''),
+                            caption=message_text
+                            )
+
+    async with state.proxy() as data:
+        data['routes'] = routes
+
+    await SettingRoute.next()
+
+    os.remove(f'''./documents/{file_name}.xlsx''')
 
 
 async def chooseDriver(message: types.Message, state: FSMContext):
     try:
         async with state.proxy() as data:
-            data['id_driver'] = int(message.text)
-    except ValueError:
-        await bot.send_message(
-            message.from_user.id,
-            text=f'Не верно введен символ, пожалуйста используйте цифры',
-            parse_mode=ParseMode.HTML,
-        )
-        await setRoute(message)
-    await bot.send_message(
-        message.from_user.id,
-        text='Список маршрутов',
-        parse_mode=ParseMode.HTML,
-    )
-    routes = await db.getRoutes()
-    if not routes.empty:
-        await bot.send_message(
-            message.from_user.id,
-            text=f'<code>{routes.to_markdown(index=False)}</code>',
-            parse_mode=ParseMode.HTML,
-        )
-
-    await bot.send_message(
-        message.from_user.id,
-        text='Введите id маршрута, которого хотите назначить',
-        parse_mode=ParseMode.HTML,
-    )
-
-    await SettingRoute.id_route.set()
-
-
-async def chooseRoute(message: types.Message, state: FSMContext):
-    try:
-        async with state.proxy() as data:
             data['id_route'] = int(message.text)
+
+        if not int(message.text) in list(data['routes'].id):
+            await bot.send_message(
+                chat_id=message.from_user.id,
+                text='Не верный «ID» маршрута. \nПовторно введите «ID» маршрута.'
+            )
+            await chooseDriver(message, state)
+
+        drivers = await db.getDrivers()
+        if not drivers.empty:
+            drivers = drivers.sort_values(by='surname', ascending=False)
+
+            message_text = 'Выберите водителя, которому хотите назначить маршрут.'
+
+            inkb = types.InlineKeyboardMarkup(row_width=1)
+            buttons = []
+
+            for x in drivers.to_dict('records'):
+                buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['name']} {x['second_name']}''', callback_data=str(x['id'])))
+            buttons.append(types.InlineKeyboardButton(text='Отмена', callback_data='cancel'))
+
+            await bot.send_message(
+                chat_id=message.from_user.id,
+                text=message_text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=inkb.add(*buttons)
+            )
+        else:
+            await bot.send_message(
+                message.from_user.id,
+                'На данный момент нет ни одного водителя.'
+            )
+            await state.finish()
+            await controlPanel(message)
+
     except ValueError:
         await bot.send_message(
-            message.from_user.id,
-            text=f'Не верно введен символ, пожалуйста используйте цифры',
-            parse_mode=ParseMode.HTML,
+            chat_id=message.from_user.id,
+            text='Введите <b>ЧИСЛО</b> без пробелов или спецсимволов.',
+            parse_mode=ParseMode.HTML
         )
-        await setRoute(message)
+        await chooseDriver(message, state)
+
+    await SettingRoute.next()
+
+
+async def endSetRoute(callback: types.CallbackQuery, state: FSMContext):
+    await bot.delete_message(callback.from_user.id, callback.message.message_id)
     async with state.proxy() as data:
-        await db.insertDriverRoute({'driver': data['id_driver'], 'route': data['id_route']}, db.engine)
-    await bot.send_message(
-        message.from_user.id,
-        text=f'Вы назначили маршрут',
-        parse_mode=ParseMode.HTML,
-    )
-    await state.finish()
-    await controlPanel(message)
+        data['id_driver'] = int(callback.data)
+
+    try:
+        await db.setRoute({'driver': data['id_driver'], 'route': data['id_route']})
+        message_text_for_admin = 'Маршрут назначен.'
+        message_text = 'Вам назначен новый маршрут.'
+
+        await bot.send_message(
+            chat_id=callback.from_user.id,
+            text=message_text_for_admin
+        )
+
+        await bot.send_message(
+            chat_id=data['driver'],
+            text=message_text
+        )
+
+        await state.finish()
+        await controlPanel(callback)
+    except sqlalchemy.exc.IntegrityError:
+        await bot.send_message(
+            chat_id=callback.from_user.id,
+            text='Нельзя повторно назначать маршрут.'
+        )
+        await setRoute(callback, state)
+
+
 
 
 async def routesList(callback: types.CallbackQuery):
@@ -346,7 +379,8 @@ async def routesListDrivers(callback: types.CallbackQuery):
 def register_handlers_clients(dp: Dispatcher):
     dp.register_callback_query_handler(controlPanel, Text(equals='controlPanel', ignore_case=True))
 
-    dp.register_callback_query_handler(approveRegistration, Text(equals='approveRegistration', ignore_case=True),state=None)
+    dp.register_callback_query_handler(approveRegistration, Text(equals='approveRegistration', ignore_case=True),
+                                       state=None)
     dp.register_callback_query_handler(setRole, state=Role.role)
     dp.register_callback_query_handler(endRole, state=Role.end)
 
@@ -357,8 +391,8 @@ def register_handlers_clients(dp: Dispatcher):
     dp.register_message_handler(recordAddressRoute, content_types=['text'], state=Route.address)
 
     dp.register_callback_query_handler(setRoute, Text(equals='setRoute', ignore_case=True))
-    dp.register_message_handler(chooseDriver, content_types=['text'], state=SettingRoute.id_driver)
-    dp.register_message_handler(chooseRoute, content_types=['text'], state=SettingRoute.id_route)
+    dp.register_message_handler(chooseDriver, content_types=['text'], state=SettingRoute.id_route)
+    dp.register_callback_query_handler(endSetRoute, state=SettingRoute.id_driver)
 
     dp.register_callback_query_handler(routesList, Text(equals='routesList', ignore_case=True))
     dp.register_callback_query_handler(routesListDrivers, Text(equals='routesListDrivers', ignore_case=True))
