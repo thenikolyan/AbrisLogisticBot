@@ -179,7 +179,7 @@ async def createRoute(callback: types.CallbackQuery, state=None):
 
     await bot.send_message(
         callback.from_user.id,
-        text=f'Введите длину маршрута',
+        text=f'Введите количество точек маршрута',
         parse_mode=ParseMode.HTML,
     )
 
@@ -190,7 +190,7 @@ async def recordLengthRoute(message: types.Message, state: FSMContext):
         if length <= 1:
             await bot.send_message(
                 message.from_user.id,
-                text=f'Не верно введена длина, пожалуйста используйте цифры',
+                text=f'Не верно введено количество точек маршрута. \nМаршрут не может состоять из 1 или менее точек.',
                 parse_mode=ParseMode.HTML,
             )
             await recordLengthRoute(message)
@@ -220,21 +220,22 @@ async def recordAddressRoute(message: types.Message, state: FSMContext):
         data['length'] -= 1
         data['address'] += f'''{message.text}~'''
 
-    await bot.send_message(
-        message.from_user.id,
-        text=f'Введите следующую точку маршрута',
-        parse_mode=ParseMode.HTML
-    )
-
     if data['length'] > 0:
-        await Route.address.set()
 
-
-    else:
-        await db.insertRoute({'route': data['address'][:-1]}, db.engine)
         await bot.send_message(
             message.from_user.id,
-            text=data['address'][:-1],
+            text=f'Введите следующую точку маршрута',
+            parse_mode=ParseMode.HTML
+        )
+
+        await Route.address.set()
+
+        
+    else:
+        await db.insertRoute({'route': data['address'][:-1]})
+        await bot.send_message(
+            message.from_user.id,
+            text='Маршрут создан.',
             parse_mode=ParseMode.HTML
         )
         await state.finish()
