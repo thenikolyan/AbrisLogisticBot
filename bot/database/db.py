@@ -27,6 +27,27 @@ create table if not exists logistic.catalog_routers(
     route bigint not null,
     PRIMARY KEY(driver, route)
 );
+
+create table if not exists logistic.list_rides(
+    id SERIAL primary key,
+    route_number bigint not null, 
+    pos bigint not null,
+    time_leaving date not null,
+    time_arriving date not null,
+    address_leaving text not null,
+    address_arriving text not null,
+    latitude_leaving numeric not null,
+    longitude_leaving numeric not null,
+    latitude_arriving numeric not null,
+    longitude_arriving numeric not null,
+    destination numeric not null,
+    akt text not null,
+    trn text not null, 
+    consignment text not null
+    
+);
+
+
 '''
 
 # путь к файлу с данными для входа
@@ -122,3 +143,42 @@ async def getCatalogRoute():
 
 async def getAttachedRoute(id):
     return (pd.read_sql(f'''select step1.driver, rou.id, rou.route from (select * from logistic.catalog_routers where "driver"={int(id)})as step1 left join logistic.routes as rou on (step1.route=rou.id) ''', conn))
+
+
+
+async def insertOneRide(ride: dict):
+
+    ride['latitude_leaving'], ride['longitude_leaving'] = ride['location_leaving'][0], ride['location_leaving'][1]
+    ride['latitude_arriving'], ride['longitude_arriving'] = ride['location_arriving'][0], ride['location_arriving'][1]
+    ride.pop('location_arriving')
+    ride.pop('location_leaving')
+    ride.pop('route')
+    ride['destination'] = 42
+    ride['akt'], ride['trn'], ride['consignment'] = '~', '~', '~'
+    import pprint
+    pprint.pprint(ride)
+    # он не может записать адрес, говорит что проблема в кавычках но там их нет что делать непонятно
+
+
+
+    # pd.DataFrame([ride]).to_sql(name='list_rides', schema='logistic', con=engine, if_exists='append', index=False,
+    #                             dtype={
+    #                                 'route_number' : sqlalchemy.Integer(),
+    #                                 'pos': sqlalchemy.Integer(),
+    #                                 'time_leaving': sqlalchemy.Date(),
+    #                                 'time_arriving': sqlalchemy.Date(),
+    #                                 'address_leaving': sqlalchemy.Text(),
+    #                                 'address_arriving': sqlalchemy.Text(),
+    #                                 'latitude_leaving': sqlalchemy.Float(),
+    #                                 'longitude_leaving': sqlalchemy.Float(),
+    #                                 'latitude_arriving': sqlalchemy.Float(),
+    #                                 'longitude_arriving': sqlalchemy.Float(),
+    #                                 'destination': sqlalchemy.Integer(),
+    #                                 'akt': sqlalchemy.Text(),
+    #                                 'trn': sqlalchemy.Text(),
+    #                                 'consignment': sqlalchemy.Text()}
+    #                             )
+
+
+
+
