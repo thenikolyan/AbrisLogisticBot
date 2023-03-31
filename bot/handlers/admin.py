@@ -72,7 +72,7 @@ async def approveRegistration(callback: types.CallbackQuery, state=None):
         buttons = []
 
         for x in users.to_dict('records'):
-            buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['name']} {x['second_name']}''',
+            buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['name']} {x['patronymic']}''',
                                                       callback_data=str(x['id'])))
         buttons.append(types.InlineKeyboardButton(text='Отмена', callback_data='cancel'))
 
@@ -293,7 +293,7 @@ async def chooseDriver(message: types.Message, state: FSMContext):
             buttons = []
 
             for x in drivers.to_dict('records'):
-                buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['name']} {x['second_name']}''', callback_data=str(x['id'])))
+                buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['name']} {x['patronymic']}''', callback_data=str(x['id'])))
             buttons.append(types.InlineKeyboardButton(text='Отмена', callback_data='cancel'))
 
             await bot.send_message(

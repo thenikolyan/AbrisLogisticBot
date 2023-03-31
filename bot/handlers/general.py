@@ -28,7 +28,7 @@ async def welcome(message: types.Message, state: FSMContext):
     ]
 
     button_driver = [
-        types.InlineKeyboardButton(text='Меню', callback_data='menuDriver'),
+        types.InlineKeyboardButton(text='Маршруты', callback_data='getRoute'),
         InlineKeyboardButton(text='Отмена', callback_data='cancel'),
     ]
 
@@ -111,7 +111,7 @@ async def goodbye(message: types.Message, state: FSMContext):
         await db.insertUser({'id': message.from_user.id,
                             'name': fio[1],
                             'surname': fio[0],
-                            'second_name': fio[2],
+                            'patronymic': fio[2],
                             'role': 'unauthtorized',
                             }, db.engine)
         
@@ -120,7 +120,7 @@ async def goodbye(message: types.Message, state: FSMContext):
         message_text,
         parse_mode=ParseMode.HTML)
 
-        user = await db.getAdmin()
+        user = await db.getAdmins()
         for x in user.to_dict('records'):
             await bot.send_message(
             x['id'],
@@ -143,6 +143,15 @@ async def cancel(callback: types.CallbackQuery, state: FSMContext):
     await bot.delete_message(callback.from_user.id, callback.message.message_id)
     await state.finish()
     await callback.answer('Отмена предыдущего действия')
+
+
+async def cancelMessage(message: types.Message, state: FSMContext):
+    # current_state = await state.get_state()
+    # if current_state is None:
+    #     return
+    await bot.delete_message(message.from_user.id, message.message_id)
+    await state.finish()
+    await message.answer('Отмена предыдущего действия')
     
 
 def register_handlers_clients(dp: Dispatcher):
@@ -152,3 +161,4 @@ def register_handlers_clients(dp: Dispatcher):
 
 
     dp.register_callback_query_handler(cancel, Text(equals='cancel', ignore_case=True), state='*')
+    dp.register_message_handler(cancelMessage, text='Отмена', state='*')

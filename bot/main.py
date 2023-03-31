@@ -3,7 +3,7 @@ from createBot import dp
 from aiogram.utils import executor
 from database import db, schema
 
-from handlers import general, admin, driver
+from handlers import general, admin, driver, client
 
 async def on_startup(_):
     db.dbCreate()
@@ -12,7 +12,8 @@ async def on_startup(_):
 
 general.register_handlers_clients(dp)
 admin.register_handlers_clients(dp)
-driver.register_handlers_clients(dp)
+client.register_handlers_clients(dp)
+#driver.register_handlers_clients(dp)
 
 
 if __name__ == "__main__":

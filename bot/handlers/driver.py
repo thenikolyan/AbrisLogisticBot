@@ -26,7 +26,6 @@ class Driver(StatesGroup):
     consignment = State()
 
 
-
 async def menuDriver(callback: types.CallbackQuery):
     try:
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
@@ -44,6 +43,8 @@ async def menuDriver(callback: types.CallbackQuery):
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=inkb.add(*buttons),
     )
+    
+
 async def viewAttachedRoutes(callback: types.CallbackQuery,state=None):
     routes = await db.getAttachedRoute(callback.from_user.id)
     inkb = types.InlineKeyboardMarkup(row_width=1)
@@ -58,6 +59,7 @@ async def viewAttachedRoutes(callback: types.CallbackQuery,state=None):
         reply_markup=inkb.add(*buttons)
     )
     await Driver.route_number.set()
+
 
 async def viewChosenRoute(callback: types.CallbackQuery, state:FSMContext):
     routes = await db.getAttachedRoute(callback.from_user.id)
@@ -124,6 +126,7 @@ async def followtRoute(callback: types.CallbackQuery, state:FSMContext):
         )
         await Driver.location_leaving.set()
 
+
 async def getLeavingLocation(message: types.Message, state: FSMContext):
     if message.content_type != 'location':
         await bot.send_message(
@@ -157,10 +160,12 @@ async def getLeavingLocation(message: types.Message, state: FSMContext):
             reply_markup=inkb.add(*buttons)
         )
         await Driver.time_leaving.set()
+
+
 async def getLeavingTimeAddr(callback: types.CallbackQuery, state:FSMContext):
     async with state.proxy() as data:
         data['time_leaving'] = datetime.datetime.now()
-        data['address_leaving '] = data['route'][data['pos']-1]
+        data['address_leaving'] = data['route'][data['pos']-1]
 
     inkb = types.InlineKeyboardMarkup(row_width=1)
     buttons = [
@@ -175,10 +180,11 @@ async def getLeavingTimeAddr(callback: types.CallbackQuery, state:FSMContext):
     )
     await Driver.time_arriving.set()
 
+
 async def getArrivingTimeAddr(callback: types.CallbackQuery, state:FSMContext):
     async with state.proxy() as data:
         data['time_arriving'] = datetime.datetime.now()
-        data['address_arriving '] = data['route'][data['pos']]
+        data['address_arriving'] = data['route'][data['pos']]
 
     buttons = [
         types.InlineKeyboardButton(text='Отмена', callback_data='cancel')
