@@ -1,18 +1,18 @@
 class cycle:
     def __init__(self, c):
-        self._c = c
+        self.count = c
         self.to_list = c
-        self._index = -1
+        self.ind = -1
 
     def __next__(self):
-        self._index += 1
-        if self._index>=len(self._c):
-            self._index = 0
-        return self._c[self._index]
+        self.ind += 1
+        if self.ind>=len(self.count):
+            self.ind = 0
+        return self.count[self.ind]
 
     def previous(self):
-        self._index -= 1
-        if self._index < 0:
-            self._index = len(self._c)-1
-        return self._c[self._index]
+        self.ind -= 1
+        if self.ind < 0:
+            self.ind = len(self.count)-1
+        return self.count[self.ind]
     

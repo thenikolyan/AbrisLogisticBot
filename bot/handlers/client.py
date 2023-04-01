@@ -12,13 +12,13 @@ from database import db
 
 
 class Route(StatesGroup):
+    admins = State()
     route = State()
     position = State()
 
     df = State()
     location = State()
-    end = State()
-
+    next_point = State()
 
 
 async def getRoute(callback: types.CallbackQuery, state=None):
@@ -52,13 +52,14 @@ async def viewRoute(callback: types.CallbackQuery, state: FSMContext):
     driver = driver.query(f'id == {int(callback.from_user.id)}').to_dict('records')[0]
 
     async with state.proxy() as data:
+        data['admins'] = admins
         data['df'] = {'id_user': callback.from_user.id, 
                       'surname': driver['surname'],
                       'name': driver['name'],
                       'patronymic': driver['patronymic'], 
                       'id_route': route['id']}
         data['route'] = cycle(route["route"].split('~'))
-        data['position'] = 1
+        data['position'] = 0
 
         route = data['route'].to_list
         message_text = f'''Ваш маршрут №{data['df']['id_route']}. 
@@ -93,6 +94,7 @@ async def viewRoute(callback: types.CallbackQuery, state: FSMContext):
 async def startRoute(message: types.Message, state: FSMContext):
     
     async with state.proxy() as data:
+        data['position'] += 1
         data['df']['time_leaving'] = dt.datetime.now().replace(microsecond=0)
         data['df']['latitude_leaving'] = message.location.latitude
         data['df']['longitude_leaving'] = message.location.longitude
@@ -127,21 +129,45 @@ async def nextPoint(message: types.Message, state: FSMContext):
         data['df']['time_arriving'] = dt.datetime.now().replace(microsecond=0)
         data['df']['latitude_arriving'] = message.location.latitude
         data['df']['longitude_arriving'] = message.location.longitude
-    
+        data['df']['destination'] = 42
+        data['df']['akt'] = 42
+        data['df']['trn'] = 42
+        data['df']['consignment'] = 42
+        data['route'].previous()
+
+        
+        arriving_point = data['df']['address_arriving']
+        admins = data['admins']
+        message_text = f'''Вы прибыли на точку: {arriving_point}. \nНе забудьте про фото АКТа, ТРНа и накладной.'''
+        message_text_for_admin = f'''Водитель: {data['df']['surname']} {data['df']['name']} {data['df']['patronymic']}, прибыл на точку {arriving_point}'''
+
+
+    inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
+    buttons = [
+        types.KeyboardButton(text='Выехал.', request_location=True),
+        types.KeyboardButton(text='Отмена')
+    ]
+
+    await bot.send_message(
+        chat_id=message.from_user.id,
+        text = message_text,
+        parse_mode=ParseMode.HTML,
+        reply_markup=inkb.add(*buttons)
+    )
+
+    for user in admins:
+        await bot.send_message(
+        chat_id=user,
+        text = message_text_for_admin,
+        parse_mode=ParseMode.HTML
+        )
+
+    await Route.location.set()
+    await startRoute(message)
 
 
 def register_handlers_clients(dp: Dispatcher):
     dp.register_callback_query_handler(getRoute, Text(equals='getRoute', ignore_case=True), state=None)
     dp.register_callback_query_handler(viewRoute, state=Route.df)
     dp.register_message_handler(startRoute, content_types=['location'], state=Route.location)
-    dp.register_message_handler(nextPoint, content_types=['text'], state=Route.end)
-
-    # dp.register_callback_query_handler(viewAttachedRoutes, Text(equals='viewAttachedRoutes', ignore_case=True), state=None)
-    # dp.register_callback_query_handler(viewChosenRoute, state=Driver.route_number)
-
-    # dp.register_callback_query_handler(followtRoute, state=Driver.pos)
-
-    # dp.register_message_handler(getLeavingLocation, content_types=['any'],  state=Driver.location_leaving)
-    # dp.register_callback_query_handler(getLeavingTimeAddr, state=Driver.time_leaving)
-    # dp.register_callback_query_handler(getArrivingTimeAddr, state=Driver.time_arriving)
-    # dp.register_message_handler(getArrivingLocation, content_types=['any'], state=Driver.location_arriving)
+    dp.register_message_handler(nextPoint, content_types=['location'], state=Route.next_point)
