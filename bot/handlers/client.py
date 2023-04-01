@@ -10,6 +10,9 @@ import datetime as dt
 from createBot import bot
 from database import db
 
+import os
+from dotenv import load_dotenv
+from pathlib import Path
 
 class Route(StatesGroup):
     admins = State()
@@ -18,7 +21,12 @@ class Route(StatesGroup):
 
     df = State()
     location = State()
-    next_point = State()
+    arriving = State()
+    act = State()
+    trn = State()
+    consignment = State()
+
+
 
 
 async def getRoute(callback: types.CallbackQuery, state=None):
@@ -62,8 +70,9 @@ async def viewRoute(callback: types.CallbackQuery, state: FSMContext):
         data['position'] = 0
 
         route = data['route'].to_list
-        message_text = f'''Ваш маршрут №{data['df']['id_route']}. 
-        Ваши пункты назначения: \n{route}.'''
+        route = '\n'.join(route)
+        print(route)
+        message_text = f'''Ваш маршрут №{data['df']['id_route']}.\nВаши пункты назначения:\n{route}.'''
         message_text_for_admin = f'''Водитель: {data['df']['surname']} {data['df']['name']} {data['df']['patronymic']}, начал поездку по маршруту №{data['df']['id_route']} ({route[0]} -> {route[-1]})'''
 
 
@@ -104,47 +113,66 @@ async def startRoute(message: types.Message, state: FSMContext):
         message_text = f'''Вы выехали из: \n{data['df']['address_leaving']}. 
         \nТочка прибытия: \n{data['df']['address_arriving']}. 
         \nПожалуйста, не забудьте <b>отметиться</b> при приезде.'''
+        pos = data['position']
+        length = len(data['route'].to_list)
+        admins = data['admins']
+        route = data['route'].to_list
+        message_text_for_admin = f'''Водитель: {data['df']['surname']} {data['df']['name']} {data['df']['patronymic']}, закончил поездку по маршруту №{data['df']['id_route']} ({route[0]} -> {route[-1]})'''
+    print(pos, length)
+    if pos >= length:
+        #передать данные в базу на доработке у Ленчика
+        await state.finish()
+        await bot.send_message(
+            chat_id=message.from_user.id,
+            text='Поздравляем, вы завершили маршрут!',
+            parse_mode=ParseMode.HTML,
+
+        )
 
 
-    inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
-    buttons = [
-        types.KeyboardButton(text='Приехал.', request_location=True),
-        types.KeyboardButton(text='Отмена')
-    ]
+        for user in admins:
+            await bot.send_message(
+                chat_id=user,
+                text=message_text_for_admin,
+                parse_mode=ParseMode.HTML
+            )
+    else:
+        inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
+        buttons = [
+            types.KeyboardButton(text='Приехал.', request_location=True),
+            types.KeyboardButton(text='Отмена')
+        ]
 
 
-    await bot.send_message(
-        chat_id=message.from_user.id,
-        text = message_text,
-        parse_mode=ParseMode.HTML,
-        reply_markup=inkb.add(*buttons)
-    )
+        await bot.send_message(
+            chat_id=message.from_user.id,
+            text = message_text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=inkb.add(*buttons)
+        )
 
-    await Route.next()
+        await Route.next()
 
 
-async def nextPoint(message: types.Message, state: FSMContext):
+async def getArriving(message: types.Message, state: FSMContext):
 
     async with state.proxy() as data:
         data['df']['time_arriving'] = dt.datetime.now().replace(microsecond=0)
         data['df']['latitude_arriving'] = message.location.latitude
         data['df']['longitude_arriving'] = message.location.longitude
         data['df']['destination'] = 42
-        data['df']['akt'] = 42
-        data['df']['trn'] = 42
-        data['df']['consignment'] = 42
         data['route'].previous()
 
         
         arriving_point = data['df']['address_arriving']
         admins = data['admins']
-        message_text = f'''Вы прибыли на точку: {arriving_point}. \nНе забудьте про фото АКТа, ТРНа и накладной.'''
+        message_text = f'''Вы прибыли на точку: {arriving_point}. \nОтправьте фото акта'''
         message_text_for_admin = f'''Водитель: {data['df']['surname']} {data['df']['name']} {data['df']['patronymic']}, прибыл на точку {arriving_point}'''
 
 
     inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
     buttons = [
-        types.KeyboardButton(text='Выехал.', request_location=True),
+        types.KeyboardButton(text='Нет акта'),
         types.KeyboardButton(text='Отмена')
     ]
 
@@ -155,6 +183,7 @@ async def nextPoint(message: types.Message, state: FSMContext):
         reply_markup=inkb.add(*buttons)
     )
 
+    #strong
     for user in admins:
         await bot.send_message(
         chat_id=user,
@@ -162,12 +191,112 @@ async def nextPoint(message: types.Message, state: FSMContext):
         parse_mode=ParseMode.HTML
         )
 
+    await Route.act.set()
+
+async def getAct(message: types.Message, state: FSMContext):
+    if message.content_type == 'text':
+        async with state.proxy() as data:
+
+            data['df']['act'] = 'no photo'
+
+    else:
+
+        async with state.proxy() as data:
+            fio = data['df']['surname'] + ' ' + data['df']['name']
+            path = os.getenv('path_', 'default')
+            name = rf'\{path}\{fio}\acts\act_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+            await message.photo[-1].download(name)
+            data['df']['act'] = name
+
+
+    inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
+    buttons = [
+        types.KeyboardButton(text='Нет ТРН'),
+        types.KeyboardButton(text='Отмена')
+    ]
+
+    message_text = f'''Спасибо!. \nОтправьте фото ТРН'''
+    await bot.send_message(
+        chat_id=message.from_user.id,
+        text=message_text,
+        parse_mode=ParseMode.HTML,
+        reply_markup=inkb.add(*buttons)
+    )
+
+
+    await Route.trn.set()
+
+
+async def getTrn(message: types.Message, state: FSMContext):
+    if message.content_type == 'text':
+        async with state.proxy() as data:
+
+            data['df']['trn'] = 'no photo'
+
+    else:
+
+        async with state.proxy() as data:
+            fio = data['df']['surname'] + ' ' + data['df']['name']
+            path = os.getenv('path_', 'default')
+            name = rf'\{path}\{fio}\trns\trn_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+            await message.photo[-1].download(name)
+            data['df']['trn'] = name
+
+
+    inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
+    buttons = [
+        types.KeyboardButton(text='Нет накладной'),
+        types.KeyboardButton(text='Отмена')
+    ]
+
+    message_text = f'''Спасибо!. \nОтправьте фото накладной'''
+    await bot.send_message(
+        chat_id=message.from_user.id,
+        text=message_text,
+        parse_mode=ParseMode.HTML,
+        reply_markup=inkb.add(*buttons)
+    )
+
+
+    await Route.consignment.set()
+
+async def getConsignment(message: types.Message, state: FSMContext):
+    if message.content_type == 'text':
+        async with state.proxy() as data:
+            data['df']['consignment'] = 'no photo'
+    else:
+
+        async with state.proxy() as data:
+            fio = data['df']['surname'] + ' ' + data['df']['name']
+            path = os.getenv('path_', 'default')
+            name = rf'\{path}\{fio}\consignments\consignment_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+            await message.photo[-1].download(name)
+            data['df']['consignment'] = name
+
+
+    inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
+    buttons = [
+        types.KeyboardButton(text='Выезд', request_location=True),
+        types.KeyboardButton(text='Отмена')
+    ]
+
+    message_text = f'''Как будете выезжать нажмите кнопку выезд'''
+    await bot.send_message(
+        chat_id=message.from_user.id,
+        text=message_text,
+        parse_mode=ParseMode.HTML,
+        reply_markup=inkb.add(*buttons)
+    )
+
+
     await Route.location.set()
     await startRoute(message)
-
 
 def register_handlers_clients(dp: Dispatcher):
     dp.register_callback_query_handler(getRoute, Text(equals='getRoute', ignore_case=True), state=None)
     dp.register_callback_query_handler(viewRoute, state=Route.df)
     dp.register_message_handler(startRoute, content_types=['location'], state=Route.location)
-    dp.register_message_handler(nextPoint, content_types=['location'], state=Route.next_point)
+    dp.register_message_handler(getArriving, content_types=['location'], state=Route.arriving)
+    dp.register_message_handler(getAct, content_types=['photo', 'text'], state=Route.act)
+    dp.register_message_handler(getTrn, content_types=['photo', 'text'], state=Route.trn)
+    dp.register_message_handler(getConsignment, content_types=['photo', 'text'], state=Route.consignment)

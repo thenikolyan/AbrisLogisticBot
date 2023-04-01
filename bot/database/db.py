@@ -30,8 +30,7 @@ create table if not exists logistic.catalog_routers(
 
 create table if not exists logistic.list_rides(
     id SERIAL primary key,
-    id_user bigint not null,
-    id_route bigint not null, 
+    route_number bigint not null, 
     pos bigint not null,
     time_leaving date not null,
     time_arriving date not null,
@@ -42,7 +41,7 @@ create table if not exists logistic.list_rides(
     latitude_arriving numeric not null,
     longitude_arriving numeric not null,
     destination numeric not null,
-    akt text not null,
+    act text not null,
     trn text not null, 
     consignment text not null
     
@@ -139,7 +138,7 @@ async def setRoute(user: dict):
 
 
 async def getCatalogRoute():
-    return (pd.read_sql(''' select use.surname, use.name, use.patronymic, step.route from (select cat.driver, rou.route from ((select * from logistic.catalog_routers) as cat inner join logistic.routes as rou on (cat.route=rou.id))) as step inner join logistic.users as use on (step.driver=use.id) ''', conn))
+    return (pd.read_sql(''' select use.surname, use.name, use.second_name, step.route from (select cat.driver, rou.route from ((select * from logistic.catalog_routers) as cat inner join logistic.routes as rou on (cat.route=rou.id))) as step inner join logistic.users as use on (step.driver=use.id) ''', conn))
 
 
 async def getAttachedRoute(id):
@@ -147,33 +146,39 @@ async def getAttachedRoute(id):
 
 
 
-async def insertOneRide(ride: dict):
+#async def insertOneRide(ride: dict):
 
-    ride['latitude_leaving'], ride['longitude_leaving'] = ride['location_leaving'][0], ride['location_leaving'][1]
-    ride['latitude_arriving'], ride['longitude_arriving'] = ride['location_arriving'][0], ride['location_arriving'][1]
-    ride.pop('location_arriving')
-    ride.pop('location_leaving')
-    ride.pop('route')
-    ride['destination'] = 42
-    ride['akt'], ride['trn'], ride['consignment'] = '~', '~', '~'
-    import pprint
-    pprint.pprint(ride)
-    # он не может записать адрес, говорит что проблема в кавычках но там их нет что делать непонятно
+    # ride['latitude_leaving'], ride['longitude_leaving'] = ride['location_leaving'][0], ride['location_leaving'][1]
+    # ride['latitude_arriving'], ride['longitude_arriving'] = ride['location_arriving'][0], ride['location_arriving'][1]
+    # ride.pop('location_arriving')
+    # ride.pop('location_leaving')
+    # ride.pop('route')
+    # ride['destination'] = 42
+    # ride['akt'], ride['trn'], ride['consignment'] = '~', '~', '~'
+    # import pprint
+    # pprint.pprint(ride)
+    # # он не может записать адрес, говорит что проблема в кавычках но там их нет что делать непонятно
+    #
+    #
+    #
+    # # pd.DataFrame([ride]).to_sql(name='list_rides', schema='logistic', con=engine, if_exists='append', index=False,
+    # #                             dtype={
+    # #                                 'route_number' : sqlalchemy.Integer(),
+    # #                                 'pos': sqlalchemy.Integer(),
+    # #                                 'time_leaving': sqlalchemy.Date(),
+    # #                                 'time_arriving': sqlalchemy.Date(),
+    # #                                 'address_leaving': sqlalchemy.Text(),
+    # #                                 'address_arriving': sqlalchemy.Text(),
+    # #                                 'latitude_leaving': sqlalchemy.Float(),
+    # #                                 'longitude_leaving': sqlalchemy.Float(),
+    # #                                 'latitude_arriving': sqlalchemy.Float(),
+    # #                                 'longitude_arriving': sqlalchemy.Float(),
+    # #                                 'destination': sqlalchemy.Integer(),
+    # #                                 'akt': sqlalchemy.Text(),
+    # #                                 'trn': sqlalchemy.Text(),
+    # #                                 'consignment': sqlalchemy.Text()}
+    # #                             )
 
-    pd.DataFrame([ride]).to_sql(name='list_rides', schema='logistic', con=engine, if_exists='append', index=False,
-                                dtype={
-                                    'route_number' : sqlalchemy.Integer(),
-                                    'pos': sqlalchemy.Integer(),
-                                    'time_leaving': sqlalchemy.Date(),
-                                    'time_arriving': sqlalchemy.Date(),
-                                    'address_leaving': sqlalchemy.Text(),
-                                    'address_arriving': sqlalchemy.Text(),
-                                    'latitude_leaving': sqlalchemy.Numeric(),
-                                    'longitude_leaving': sqlalchemy.Numeric(),
-                                    'latitude_arriving': sqlalchemy.Numeric(),
-                                    'longitude_arriving': sqlalchemy.Numeric(),
-                                    'destination': sqlalchemy.Integer(),
-                                    'akt': sqlalchemy.Text(),
-                                    'trn': sqlalchemy.Text(),
-                                    'consignment': sqlalchemy.Text()}
-                                )
+
+
+
