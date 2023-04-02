@@ -9,6 +9,7 @@ import pandas as pd
 description = '''
 create schema if not exists logistic;
 
+
 create table if not exists logistic.users(
     id bigint primary key,
     name text not null,
@@ -17,10 +18,12 @@ create table if not exists logistic.users(
     role text not null 
 );
 
+
 create table if not exists logistic.routes(
     id SERIAL primary key,
     route text not null
 ); 
+
 
 create table if not exists logistic.catalog_routers(
     driver bigint not null,
@@ -28,12 +31,16 @@ create table if not exists logistic.catalog_routers(
     PRIMARY KEY(driver, route)
 );
 
+
 create table if not exists logistic.list_rides(
-    id SERIAL primary key,
-    route_number bigint not null, 
-    pos bigint not null,
-    time_leaving date not null,
-    time_arriving date not null,
+    id bigint not null,
+    id_user bigint not null,
+    id_route bigint not null, 
+    position bigint not null,
+    date_leaving date not null,
+    time_leaving time not null,
+    date_arriving date not null,
+    time_arriving time not null,
     address_leaving text not null,
     address_arriving text not null,
     latitude_leaving numeric not null,
@@ -44,9 +51,7 @@ create table if not exists logistic.list_rides(
     act text not null,
     trn text not null, 
     consignment text not null
-    
 );
-
 
 '''
 
@@ -145,40 +150,50 @@ async def getAttachedRoute(id):
     return (pd.read_sql(f'''select step1.driver, rou.id, rou.route from (select * from logistic.catalog_routers where "driver"={int(id)})as step1 left join logistic.routes as rou on (step1.route=rou.id) ''', conn))
 
 
-
-#async def insertOneRide(ride: dict):
-
-    # ride['latitude_leaving'], ride['longitude_leaving'] = ride['location_leaving'][0], ride['location_leaving'][1]
-    # ride['latitude_arriving'], ride['longitude_arriving'] = ride['location_arriving'][0], ride['location_arriving'][1]
-    # ride.pop('location_arriving')
-    # ride.pop('location_leaving')
-    # ride.pop('route')
-    # ride['destination'] = 42
-    # ride['akt'], ride['trn'], ride['consignment'] = '~', '~', '~'
-    # import pprint
-    # pprint.pprint(ride)
-    # # он не может записать адрес, говорит что проблема в кавычках но там их нет что делать непонятно
-    #
-    #
-    #
-    # # pd.DataFrame([ride]).to_sql(name='list_rides', schema='logistic', con=engine, if_exists='append', index=False,
-    # #                             dtype={
-    # #                                 'route_number' : sqlalchemy.Integer(),
-    # #                                 'pos': sqlalchemy.Integer(),
-    # #                                 'time_leaving': sqlalchemy.Date(),
-    # #                                 'time_arriving': sqlalchemy.Date(),
-    # #                                 'address_leaving': sqlalchemy.Text(),
-    # #                                 'address_arriving': sqlalchemy.Text(),
-    # #                                 'latitude_leaving': sqlalchemy.Float(),
-    # #                                 'longitude_leaving': sqlalchemy.Float(),
-    # #                                 'latitude_arriving': sqlalchemy.Float(),
-    # #                                 'longitude_arriving': sqlalchemy.Float(),
-    # #                                 'destination': sqlalchemy.Integer(),
-    # #                                 'akt': sqlalchemy.Text(),
-    # #                                 'trn': sqlalchemy.Text(),
-    # #                                 'consignment': sqlalchemy.Text()}
-    # #                             )
+async def insertOneRide(ride: dict):
+    df = pd.DataFrame([ride])
+    df = df.drop(columns=['name', 'surname', 'patronymic'])
+    df.to_sql(name='list_rides', schema='logistic', con=engine, if_exists='append', index=False,
+              dtype={
+                    'id': sqlalchemy.Integer(),
+                    'id_user': sqlalchemy.Integer(),
+                    'id_route': sqlalchemy.Integer(),
+                    'position': sqlalchemy.Integer(),
+                    'date_leaving': sqlalchemy.Date(),
+                    'time_leaving': sqlalchemy.Time(),
+                    'date_arriving': sqlalchemy.Date(),
+                    'time_arriving': sqlalchemy.Time(),
+                    'address_leaving': sqlalchemy.Text(),
+                    'address_arriving': sqlalchemy.Text(),
+                    'latitude_leaving': sqlalchemy.Numeric(),
+                    'longitude_leaving': sqlalchemy.Numeric(),
+                    'latitude_arriving': sqlalchemy.Numeric(),
+                    'longitude_arriving': sqlalchemy.Numeric(),
+                    'destination': sqlalchemy.Numeric(),
+                    'akt': sqlalchemy.Text(),
+                    'trn': sqlalchemy.Text(),
+                    'consignment': sqlalchemy.Text(),
+                    }
+                )
 
 
+async def getMaxIdRoutes():
+    tmp = pd.read_sql(''' select max(id) as id from logistic.list_rides ''', conn).to_dict('records')[0]['id']
+    if tmp is not None:
+        return tmp + 1
+    else:
+        return 1
 
 
+async def deleteCatalogRoute(df: dict):
+    query = f''' delete from logistic.catalog_routers where "driver"={df['driver']} and "route"={df['route']} '''
+    cur.execute(query)
+    conn.commit()
+
+
+async def getOneRecordRoute(df: dict):
+    query = f''' select * from (select id as id_user, surname, name, patronymic from logistic.users where "id"={df['user']}) as initials 
+    right join (select * from logistic.list_rides where "date_leaving" = '{df['date']}' and "id_route" = '{df['route']}' and "id"={df['id']}) as listRoutes 
+    on (initials.id_user=listRoutes.id_user) '''
+
+    return (pd.read_sql(query, conn))
