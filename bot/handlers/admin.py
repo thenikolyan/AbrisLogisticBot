@@ -1,6 +1,4 @@
-
 import os
-import time
 
 from aiogram.types import ParseMode
 from aiogram.types.input_file import InputFile
@@ -9,9 +7,10 @@ from aiogram.dispatcher import FSMContext
 
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from tabulate import tabulate
+
+import pandas as pd
 import sqlalchemy
-from aiogram.utils.markdown import text, bold
+
 from createBot import bot
 from database import db
 
@@ -27,12 +26,17 @@ class Route(StatesGroup):
     address = State()
 
 
+class RouteExcel(StatesGroup):
+    excel = State()
+
+
 class SettingRoute(StatesGroup):
     routes = State()
     id_route = State()
     id_driver = State()
 
 
+# Control panels
 async def controlPanel(callback: types.CallbackQuery):
     try:
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
@@ -40,12 +44,9 @@ async def controlPanel(callback: types.CallbackQuery):
         pass
     inkb = types.InlineKeyboardMarkup(row_width=1)
     buttons = [
-        types.InlineKeyboardButton(text='Просмотр списка водителей', callback_data='driversList'),
         types.InlineKeyboardButton(text='Подтверждение регистрации', callback_data='approveRegistration'),
-        types.InlineKeyboardButton(text='Просмотр списка маршрутов', callback_data='routesList'),
-        types.InlineKeyboardButton(text='Просмотр списка маршрутов с водителями', callback_data='routesListDrivers'),
-        types.InlineKeyboardButton(text='Создание маршрута', callback_data='createRoute'),
-        types.InlineKeyboardButton(text='Назначить маршрут', callback_data='setRoute'),
+        types.InlineKeyboardButton(text='Просмотр каталогов', callback_data='controlPanelViewCatalog'),
+        types.InlineKeyboardButton(text='Работа с маршрутами', callback_data='controlPanelRoute'),
         types.InlineKeyboardButton(text='Сбор отчета', callback_data='createReport'),
         types.InlineKeyboardButton(text='Отмена', callback_data='cancel')
     ]
@@ -58,6 +59,41 @@ async def controlPanel(callback: types.CallbackQuery):
     )
 
 
+async def controlPanelViewCatalog(callback: types.CallbackQuery):
+    await bot.delete_message(callback.from_user.id, callback.message.message_id)
+
+    inkb = types.InlineKeyboardMarkup(row_width=1)
+    buttons = [types.InlineKeyboardButton(text='Просмотр списка водителей', callback_data='driversList'),
+               types.InlineKeyboardButton(text='Просмотр списка маршрутов', callback_data='routesList'),
+               types.InlineKeyboardButton(text='Просмотр списка маршрутов с водителями', callback_data='routesListDrivers'),
+               types.InlineKeyboardButton(text='Назад', callback_data='controlPanel')]
+    
+    await bot.send_message(
+        callback.from_user.id,
+        'Панель управления маршрутами',
+        parse_mode=ParseMode.HTML,
+        reply_markup=inkb.add(*buttons),
+    )
+
+
+async def controlPanelRoute(callback: types.CallbackQuery):
+    await bot.delete_message(callback.from_user.id, callback.message.message_id)
+
+    inkb = types.InlineKeyboardMarkup(row_width=1)
+    buttons = [types.InlineKeyboardButton(text='Создать маршрут', callback_data='chooseWayCreateRoute'),
+               types.InlineKeyboardButton(text='Назначить маршрут', callback_data='setRoute'),
+               types.InlineKeyboardButton(text='Удалить маршрут', callback_data='deleteRoute'),
+               types.InlineKeyboardButton(text='Назад', callback_data='controlPanel')]
+    
+    await bot.send_message(
+        callback.from_user.id,
+        'Панель управления маршрутами',
+        parse_mode=ParseMode.HTML,
+        reply_markup=inkb.add(*buttons),
+    )
+
+
+# Approve registration
 async def approveRegistration(callback: types.CallbackQuery, state=None):
     await state.finish()
     await Role.id.set()
@@ -143,6 +179,7 @@ async def endRole(callback: types.CallbackQuery, state: FSMContext):
     await controlPanel(callback)
 
 
+# Viewing catalogs
 async def driversList(callback: types.CallbackQuery):
     drivers = await db.getDrivers()
     if not drivers.empty:
@@ -173,6 +210,51 @@ async def driversList(callback: types.CallbackQuery):
         await controlPanel(callback)
 
 
+async def routesList(callback: types.CallbackQuery):
+    routes = await db.getRoutes()
+    if not routes.empty:
+        await bot.send_message(
+            callback.from_user.id,
+            text=f'<code>{routes.to_markdown(index=False)}</code>',
+            parse_mode=ParseMode.HTML)
+
+    await controlPanel(callback)
+
+
+async def routesListDrivers(callback: types.CallbackQuery):
+    catalog = await db.getCatalogRoute()
+    if not catalog.empty:
+        await bot.send_message(
+            callback.from_user.id,
+            text=f'<code>{catalog.to_markdown(index=False)}</code>',
+            parse_mode=ParseMode.HTML)
+    else:
+        await bot.send_message(
+            callback.from_user.id,
+            text=f'Нет данных.',
+            parse_mode=ParseMode.HTML)
+
+    await controlPanel(callback)
+
+
+# Working with routes
+async def chooseWayCreateRoute(callback: types.CallbackQuery):
+    await bot.delete_message(callback.from_user.id, callback.message.message_id)
+
+    inkb = types.InlineKeyboardMarkup(row_width=1)
+    buttons = [types.InlineKeyboardButton(text='Создать вручную', callback_data='createRoute'),
+               types.InlineKeyboardButton(text='Excel формат', callback_data='createRouteExcel'),
+               types.InlineKeyboardButton(text='Назад', callback_data='controlPanelRoute')]
+    
+    await bot.send_message(
+        callback.from_user.id,
+        'Панель управления маршрутами',
+        parse_mode=ParseMode.HTML,
+        reply_markup=inkb.add(*buttons),
+    )    
+
+
+## Create route
 async def createRoute(callback: types.CallbackQuery, state=None):
     await state.finish()
     await Route.length.set()
@@ -242,10 +324,81 @@ async def recordAddressRoute(message: types.Message, state: FSMContext):
         await controlPanel(message)
 
 
-# назначение маршрута
+## Create route using excel
+async def createRouteExcel(callback: types.CallbackQuery, state=None):
+    await state.finish()
+
+    message_text = 'Пожалуйста, <b>используйте шаблон</b> представленный в примере, для корректного ввода.'
+    inkb = types.InlineKeyboardMarkup(row_width=1)
+    buttons = [types.InlineKeyboardButton(text='Назад', callback_data='chooseWayCreateRoute')]
+
+    await bot.send_document(chat_id=callback.from_user.id,
+                            document=InputFile(f'''./bot/documents/examples/Пример маршрута.xlsx'''),
+                            caption=message_text,
+                            parse_mode=ParseMode.HTML,
+                            reply_markup=inkb.add(*buttons)
+                            )
+    
+    await RouteExcel.excel.set()
+
+
+async def insertRouteExcel(message: types.Message, state: FSMContext):
+    if message.document.file_name.split('.')[-1] != 'xlsx':
+
+        message_text = 'Неверный формат файла. Пожалуйста, используйте формат <b>«xlsx»</b>.'
+        inkb = types.InlineKeyboardMarkup(row_width=1)
+        buttons = [types.InlineKeyboardButton(text='Назад', callback_data='chooseWayCreateRoute')]
+
+        await bot.send_message(chat_id=message.from_user.id,
+                                text=message_text,
+                                parse_mode=ParseMode.HTML,
+                                reply_markup=inkb.add(*buttons)
+                                )
+    else:
+        name = str(hash(message.document.file_name))
+        await message.document.download(f'''./bot/documents/{name}.xlsx''')
+
+        df = pd.read_excel(f'''./bot/documents/{name}.xlsx''')
+        os.remove(f'''./bot/documents/{name}.xlsx''')
+
+        try:
+            route = '~'.join(list(df['Маршрут']))
+            df = await db.getRoutes()
+            print(df['route'])
+            if route not in list(df['route']):
+                await db.insertRoute({'route': route})
+                await state.finish()
+                message_text = 'Маршрут добавлен.'
+
+                await bot.send_message(chat_id=message.from_user.id,
+                                        text=message_text
+                                        )
+                
+                await controlPanel()
+            else:
+                await state.finish()
+                message_text = 'Такой маршрут уже существует. Пожалуйста, отправьте другой маршрут.'
+                inkb = types.InlineKeyboardMarkup(row_width=1)
+                buttons = [types.InlineKeyboardButton(text='Назад', callback_data='chooseWayCreateRoute')]
+                await bot.send_message(chat_id=message.from_user.id,
+                                        text=message_text,
+                                        reply_markup=inkb.add(*buttons)
+                                        )
+            
+        except KeyError:
+            message_text = 'Неверное имя колонки. Пожалуйста, используйте имя для колонки, где записан маршрут, <b>«Маршрут»</b>.'
+            inkb = types.InlineKeyboardMarkup(row_width=1)
+            buttons = [types.InlineKeyboardButton(text='Назад', callback_data='chooseWayCreateRoute')]
+
+            await bot.send_message(chat_id=message.from_user.id,
+                                    text=message_text,
+                                    parse_mode=ParseMode.HTML,
+                                    reply_markup=inkb.add(*buttons)
+                                    )
+
+
+## Set route
 async def setRoute(callback: types.CallbackQuery, state=None):
-
-
     await state.finish()
     await SettingRoute.routes.set()
 
@@ -255,10 +408,12 @@ async def setRoute(callback: types.CallbackQuery, state=None):
     routes.to_excel(f'''./bot/documents/{file_name}.xlsx''', index=False)
 
     message_text = 'Пожалуйста: \n1) Откройте файл \n2) Выбирите «ID» маршрута \n3) Введите «ID» маршрута'
-
+    inkb = types.InlineKeyboardMarkup(row_width=1)
+    buttons = [types.InlineKeyboardButton(text='Отмена', callback_data='cancel')]
     await bot.send_document(chat_id=callback.from_user.id,
                             document=InputFile(f'''./bot/documents/{file_name}.xlsx'''),
-                            caption=message_text
+                            caption=message_text,
+                            reply_markup=inkb.add(*buttons)
                             )
 
     async with state.proxy() as data:
@@ -278,7 +433,7 @@ async def chooseDriver(message: types.Message, state: FSMContext):
                     chat_id=message.from_user.id,
                     text='Не верный «ID» маршрута. \nПовторно введите «ID» маршрута.'
                 )
-                await chooseDriver(message)
+                #await chooseDriver(message, state)
             else:
                 data['id_route'] = int(message.text)
                 print(data)
@@ -317,7 +472,7 @@ async def chooseDriver(message: types.Message, state: FSMContext):
             text='Введите <b>ЧИСЛО</b> без пробелов или спецсимволов.',
             parse_mode=ParseMode.HTML
         )
-        await chooseDriver(message)
+        #await chooseDriver(message)
 
     await SettingRoute.next()
 
@@ -328,7 +483,7 @@ async def endSetRoute(callback: types.CallbackQuery, state: FSMContext):
         data['id_driver'] = int(callback.data)
 
     try:
-        await db.setRoute({'driver': data['id_driver'], 'route': data['id_route']})
+        await db.insertRouteCatalog({'driver': data['id_driver'], 'route': data['id_route']})
         message_text_for_admin = 'Маршрут назначен.'
         message_text = 'Вам назначен новый маршрут.'
 
@@ -352,50 +507,31 @@ async def endSetRoute(callback: types.CallbackQuery, state: FSMContext):
     await controlPanel(callback)
 
 
-async def routesList(callback: types.CallbackQuery):
-    routes = await db.getRoutes()
-    if not routes.empty:
-        await bot.send_message(
-            callback.from_user.id,
-            text=f'<code>{routes.to_markdown(index=False)}</code>',
-            parse_mode=ParseMode.HTML)
-
-    await controlPanel(callback)
-
-
-async def routesListDrivers(callback: types.CallbackQuery):
-    catalog = await db.getCatalogRoute()
-    if not catalog.empty:
-        await bot.send_message(
-            callback.from_user.id,
-            text=f'<code>{catalog.to_markdown(index=False)}</code>',
-            parse_mode=ParseMode.HTML)
-    else:
-        await bot.send_message(
-            callback.from_user.id,
-            text=f'Нет данных.',
-            parse_mode=ParseMode.HTML)
-
-    await controlPanel(callback)
-
-
 def register_handlers_clients(dp: Dispatcher):
     dp.register_callback_query_handler(controlPanel, Text(equals='controlPanel', ignore_case=True))
+    dp.register_callback_query_handler(controlPanelRoute, Text(equals='controlPanelRoute', ignore_case=True))
+    dp.register_callback_query_handler(controlPanelViewCatalog, Text(equals='controlPanelViewCatalog', ignore_case=True))
+    
 
-    dp.register_callback_query_handler(approveRegistration, Text(equals='approveRegistration', ignore_case=True),
-                                       state=None)
+    dp.register_callback_query_handler(approveRegistration, Text(equals='approveRegistration', ignore_case=True),state=None)
     dp.register_callback_query_handler(setRole, state=Role.role)
     dp.register_callback_query_handler(endRole, state=Role.end)
 
-    dp.register_callback_query_handler(driversList, Text(equals='driversList', ignore_case=True), state=None)
+
+    dp.register_callback_query_handler(driversList, Text(equals='driversList', ignore_case=True))
+    dp.register_callback_query_handler(routesList, Text(equals='routesList', ignore_case=True))
+    dp.register_callback_query_handler(routesListDrivers, Text(equals='routesListDrivers', ignore_case=True))
+
+
+    dp.register_callback_query_handler(chooseWayCreateRoute, Text(equals='chooseWayCreateRoute', ignore_case=True))
 
     dp.register_callback_query_handler(createRoute, Text(equals='createRoute', ignore_case=True), state=None)
     dp.register_message_handler(recordLengthRoute, content_types=['text'], state=Route.length)
     dp.register_message_handler(recordAddressRoute, content_types=['text'], state=Route.address)
 
+    dp.register_callback_query_handler(createRouteExcel, Text(equals='createRouteExcel', ignore_case=True), state=None)
+    dp.register_message_handler(insertRouteExcel, content_types=['document'], state=RouteExcel.excel)
+
     dp.register_callback_query_handler(setRoute, Text(equals='setRoute', ignore_case=True))
     dp.register_message_handler(chooseDriver, content_types=['text'], state=SettingRoute.id_route)
     dp.register_callback_query_handler(endSetRoute, state=SettingRoute.id_driver)
-
-    dp.register_callback_query_handler(routesList, Text(equals='routesList', ignore_case=True))
-    dp.register_callback_query_handler(routesListDrivers, Text(equals='routesListDrivers', ignore_case=True))

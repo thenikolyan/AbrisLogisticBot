@@ -3,7 +3,7 @@ from createBot import dp
 from aiogram.utils import executor
 from database import db, schema
 
-from handlers import general, admin, driver, client
+from handlers import general, admin, client
 
 
 async def on_startup(_):

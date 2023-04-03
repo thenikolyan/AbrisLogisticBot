@@ -25,9 +25,9 @@ create table if not exists logistic.routes(
 ); 
 
 
-create table if not exists logistic.catalog_routers(
+create table if not exists logistic.catalog_routes(
     driver bigint not null,
-    route bigint not null,
+    route bigint not null REFERENCES logistic.routes(id),
     PRIMARY KEY(driver, route)
 );
 
@@ -92,6 +92,7 @@ def dbCreate():
     conn.commit()
 
 
+# Insert data
 async def insertUser(user: dict, engine):
     pd.DataFrame([user]).to_sql(name='users', schema='logistic', con=engine, if_exists='append', index=False,
                                 dtype={'id': sqlalchemy.BigInteger(),
@@ -102,52 +103,14 @@ async def insertUser(user: dict, engine):
                                        })
 
 
-async def updateUserRole(user: dict):
-    query = f''' update logistic.users set "role"='{user['role']}' where "id"={int(user['id'])}'''
-    cur.execute(query)
-    conn.commit()
-
-
-async def getIdRoleUser(uid):
-    return (pd.read_sql(f'''select id, role from logistic.users where "id" = {uid}''', conn))
-
-
-async def getAdmins():
-    return (pd.read_sql(f'''select id from logistic.users where "role" = 'admin' ''', conn))
-
-
-async def getUnauthorizedUsers():
-    return (pd.read_sql(f'''select * from logistic.users where "role" = 'unauthtorized' ''', conn))
-
-
-async def getDrivers():
-    return (pd.read_sql(f'''select * from logistic.users where "role" = 'driver' ''', conn))
-
-
-async def updateUnauthorizedUsers(id, role):
-    return (pd.read_sql(f'''update logistic.users set role='{role}' where "id"={id}''', conn))
-
-
 async def insertRoute(user: dict):
     pd.DataFrame([user]).to_sql(name='routes', schema='logistic', con=engine, if_exists='append', index=False,
                                 dtype={'id': sqlalchemy.Integer(), 'route': sqlalchemy.Text()})
 
 
-async def getRoutes():
-    return (pd.read_sql(f''' select * from logistic.routes ''', conn))
-
-
-async def setRoute(user: dict):
-    pd.DataFrame([user]).to_sql(name='catalog_routers', schema='logistic', con=engine, if_exists='append', index=False,
+async def insertRouteCatalog(user: dict):
+    pd.DataFrame([user]).to_sql(name='catalog_routes', schema='logistic', con=engine, if_exists='append', index=False,
                                 dtype={'driver': sqlalchemy.Integer(), 'route': sqlalchemy.Integer()})
-
-
-async def getCatalogRoute():
-    return (pd.read_sql(''' select use.surname, use.name, use.second_name, step.route from (select cat.driver, rou.route from ((select * from logistic.catalog_routers) as cat inner join logistic.routes as rou on (cat.route=rou.id))) as step inner join logistic.users as use on (step.driver=use.id) ''', conn))
-
-
-async def getAttachedRoute(id):
-    return (pd.read_sql(f'''select step1.driver, rou.id, rou.route from (select * from logistic.catalog_routers where "driver"={int(id)})as step1 left join logistic.routes as rou on (step1.route=rou.id) ''', conn))
 
 
 async def insertOneRide(ride: dict):
@@ -177,6 +140,42 @@ async def insertOneRide(ride: dict):
                 )
 
 
+# Update data
+async def updateUserRole(user: dict):
+    query = f''' update logistic.users set "role"='{user['role']}' where "id"={int(user['id'])}'''
+    cur.execute(query)
+    conn.commit()
+
+
+# Get data
+async def getIdRoleUser(uid):
+    return (pd.read_sql(f'''select id, role from logistic.users where "id" = {uid}''', conn))
+
+
+async def getAdmins():
+    return (pd.read_sql(f'''select id from logistic.users where "role" = 'admin' ''', conn))
+
+
+async def getUnauthorizedUsers():
+    return (pd.read_sql(f'''select * from logistic.users where "role" = 'unauthtorized' ''', conn))
+
+
+async def getDrivers():
+    return (pd.read_sql(f'''select * from logistic.users where "role" = 'driver' ''', conn))
+
+
+async def getRoutes():
+    return (pd.read_sql(f''' select * from logistic.routes ''', conn))
+
+
+async def getCatalogRoute():
+    return (pd.read_sql(''' select use.surname, use.name, use.second_name, step.route from (select cat.driver, rou.route from ((select * from logistic.catalog_routes) as cat inner join logistic.routes as rou on (cat.route=rou.id))) as step inner join logistic.users as use on (step.driver=use.id) ''', conn))
+
+
+async def getAttachedRoute(id):
+    return (pd.read_sql(f'''select step1.driver, rou.id, rou.route from (select * from logistic.catalog_routes where "driver"={int(id)})as step1 left join logistic.routes as rou on (step1.route=rou.id) ''', conn))
+
+
 async def getMaxIdRoutes():
     tmp = pd.read_sql(''' select max(id) as id from logistic.list_rides ''', conn).to_dict('records')[0]['id']
     if tmp is not None:
@@ -185,15 +184,22 @@ async def getMaxIdRoutes():
         return 1
 
 
-async def deleteCatalogRoute(df: dict):
-    query = f''' delete from logistic.catalog_routers where "driver"={df['driver']} and "route"={df['route']} '''
-    cur.execute(query)
-    conn.commit()
-
-
 async def getOneRecordRoute(df: dict):
     query = f''' select * from (select id as id_user, surname, name, patronymic from logistic.users where "id"={df['user']}) as initials 
     right join (select * from logistic.list_rides where "date_leaving" = '{df['date']}' and "id_route" = '{df['route']}' and "id"={df['id']}) as listRoutes 
     on (initials.id_user=listRoutes.id_user) '''
 
     return (pd.read_sql(query, conn))
+
+
+# Delete data
+async def deleteCatalogRoute(df: dict):
+    query = f''' delete from logistic.catalog_routes where "driver"={df['driver']} and "route"={df['route']} '''
+    cur.execute(query)
+    conn.commit()
+
+
+async def deleteRoute(route: dict):
+    query = f''' delete from logistic.routes where "id"={route['id']} '''
+    cur.execute(query)
+    conn.commit()

@@ -6,7 +6,8 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
-from auxiliary.funcs import cycle
+from auxiliary.funcs import cycle, distance
+from auxiliary.catalog import names
 import datetime as dt
 
 from createBot import bot
@@ -167,7 +168,7 @@ async def getArriving(message: types.Message, state: FSMContext):
         data['df']['time_arriving'] = dt.datetime.now().time().replace(microsecond=0)
         data['df']['latitude_arriving'] = message.location.latitude
         data['df']['longitude_arriving'] = message.location.longitude
-        data['df']['destination'] = 42
+        data['df']['destination'] = distance(data['df']['latitude_leaving'], data['df']['longitude_arriving'], data['df']['latitude_arriving'], data['df']['longitude_arriving'])
         data['route'].previous()
 
         
@@ -310,6 +311,7 @@ async def finishRoute(message: types.Message, state: FSMContext):
         data['df']['longitude_leaving'] = message.location.longitude
         data['df']['address_leaving'] = next(data['route'])
         data['df']['address_arriving'] = next(data['route'])
+        data['df']['destination'] = distance(data['df']['latitude_leaving'], data['df']['longitude_arriving'], data['df']['latitude_arriving'], data['df']['longitude_arriving'])
         data['df']['act'] = 'no photo'
         data['df']['trn'] = 'no photo'
         data['df']['consignment'] = 'no photo'
@@ -336,7 +338,7 @@ async def finishRoute(message: types.Message, state: FSMContext):
         
     async with state.proxy() as data:
         await db.insertOneRide(data['df'])
-        #await db.deleteCatalogRoute({'driver': data['df']['id_user'], 'route': data['df']['id_route']})
+        await db.deleteCatalogRoute({'driver': data['df']['id_user'], 'route': data['df']['id_route']})
 
         fio = data['df']['surname'] + ' ' + data['df']['name']
         path = os.getenv('path_', 'default')
@@ -349,9 +351,9 @@ async def finishRoute(message: types.Message, state: FSMContext):
         if not os.path.isdir(dir):
             os.mkdir(dir)
 
-        df.to_excel(dir+name, index=False)
+        df = df.drop(columns=['id', 'id_user'])
+        df.rename(columns=names).to_excel(dir+name, index=False)
     
-
     await state.finish()
 
 
