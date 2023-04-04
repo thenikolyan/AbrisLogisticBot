@@ -11,6 +11,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 import pandas as pd
 import sqlalchemy
 
+from auxiliary.catalog import names
 from createBot import bot
 from database import db
 
@@ -30,6 +31,10 @@ class RouteExcel(StatesGroup):
     excel = State()
 
 
+class DeleteRoute(StatesGroup):
+    id = State()
+
+
 class SettingRoute(StatesGroup):
     routes = State()
     id_route = State()
@@ -37,7 +42,8 @@ class SettingRoute(StatesGroup):
 
 
 # Control panels
-async def controlPanel(callback: types.CallbackQuery):
+async def controlPanel(callback: types.CallbackQuery, state='*'):
+    await state.finish()
     try:
         await bot.delete_message(callback.from_user.id, callback.message.message_id)
     except AttributeError:
@@ -59,7 +65,8 @@ async def controlPanel(callback: types.CallbackQuery):
     )
 
 
-async def controlPanelViewCatalog(callback: types.CallbackQuery):
+async def controlPanelViewCatalog(callback: types.CallbackQuery, state='*'):
+    await state.finish()
     await bot.delete_message(callback.from_user.id, callback.message.message_id)
 
     inkb = types.InlineKeyboardMarkup(row_width=1)
@@ -76,7 +83,8 @@ async def controlPanelViewCatalog(callback: types.CallbackQuery):
     )
 
 
-async def controlPanelRoute(callback: types.CallbackQuery):
+async def controlPanelRoute(callback: types.CallbackQuery, state='*'):
+    await state.finish()
     await bot.delete_message(callback.from_user.id, callback.message.message_id)
 
     inkb = types.InlineKeyboardMarkup(row_width=1)
@@ -126,7 +134,7 @@ async def approveRegistration(callback: types.CallbackQuery, state=None):
             'На данный момент, никто не ожидает подтверждения регистрации.',
         )
         await state.finish()
-        await controlPanel(callback)
+        await controlPanel(callback, state=None)
 
 
 async def setRole(callback: types.CallbackQuery, state: FSMContext):
@@ -176,69 +184,96 @@ async def endRole(callback: types.CallbackQuery, state: FSMContext):
     )
 
     await state.finish()
-    await controlPanel(callback)
+    await controlPanel(callback, state=None)
 
 
 # Viewing catalogs
 async def driversList(callback: types.CallbackQuery):
     drivers = await db.getDrivers()
     if not drivers.empty:
-        await bot.send_message(
-            callback.from_user.id,
-            text=f'<code>{drivers.to_markdown(index=False)}</code>',
-            parse_mode=ParseMode.HTML,
-        )
+        
         inkb = types.InlineKeyboardMarkup(row_width=1)
         buttons = [
-            types.InlineKeyboardButton(text='Назначить маршрут', callback_data='setRoute'),
-            types.InlineKeyboardButton(text='Создать маршрут', callback_data='createRoute'),
-            types.InlineKeyboardButton(text='Вернуться в главное меню', callback_data='controlPanel'),
-            types.InlineKeyboardButton(text='Отмена', callback_data='cancel')
+            types.InlineKeyboardButton(text='Назад', callback_data='controlPanelViewCatalog')
         ]
-        await bot.send_message(
-            callback.from_user.id,
-            'Выберете действие',
-            reply_markup=inkb.add(*buttons)
+        
+        file_name = f'''tmp{str(hash('tmp'))}'''
 
-        )
+        drivers.to_excel(f'''./bot/documents/{file_name}.xlsx''', index=False)
+
+        message_text = 'Список водителей.'
+        inkb = types.InlineKeyboardMarkup(row_width=1)
+        buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelViewCatalog')]
+        
+        await bot.send_document(chat_id=callback.from_user.id,
+                                document=InputFile(f'''./bot/documents/{file_name}.xlsx'''),
+                                caption=message_text,
+                                reply_markup=inkb.add(*buttons)
+                                )
+
+        os.remove(f'''./bot/documents/{file_name}.xlsx''')
+
     else:
         await bot.send_message(
             callback.from_user.id,
             'На данный момент водителей нет в базе.',
         )
 
-        await controlPanel(callback)
-
 
 async def routesList(callback: types.CallbackQuery):
     routes = await db.getRoutes()
     if not routes.empty:
+        file_name = f'''tmp{str(hash('tmp'))}'''
+
+        routes.to_excel(f'''./bot/documents/{file_name}.xlsx''', index=False)
+
+        message_text = 'Список маршрутов'
+        inkb = types.InlineKeyboardMarkup(row_width=1)
+        buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelViewCatalog')]
+        
+        await bot.send_document(chat_id=callback.from_user.id,
+                                document=InputFile(f'''./bot/documents/{file_name}.xlsx'''),
+                                caption=message_text,
+                                reply_markup=inkb.add(*buttons)
+                                )
+
+        os.remove(f'''./bot/documents/{file_name}.xlsx''')
+    else:
         await bot.send_message(
             callback.from_user.id,
-            text=f'<code>{routes.to_markdown(index=False)}</code>',
+            text=f'Не создано ни одного маршрута.',
             parse_mode=ParseMode.HTML)
-
-    await controlPanel(callback)
 
 
 async def routesListDrivers(callback: types.CallbackQuery):
     catalog = await db.getCatalogRoute()
     if not catalog.empty:
-        await bot.send_message(
-            callback.from_user.id,
-            text=f'<code>{catalog.to_markdown(index=False)}</code>',
-            parse_mode=ParseMode.HTML)
+        file_name = f'''tmp{str(hash('tmp'))}'''
+
+        catalog.to_excel(f'''./bot/documents/{file_name}.xlsx''', index=False)
+
+        message_text = 'Список водителей и их маршрутов.'
+        inkb = types.InlineKeyboardMarkup(row_width=1)
+        buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelViewCatalog')]
+
+        await bot.send_document(chat_id=callback.from_user.id,
+                                document=InputFile(f'''./bot/documents/{file_name}.xlsx'''),
+                                caption=message_text,
+                                reply_markup=inkb.add(*buttons)
+                                )
+
+        os.remove(f'''./bot/documents/{file_name}.xlsx''')
+
     else:
         await bot.send_message(
             callback.from_user.id,
-            text=f'Нет данных.',
+            text=f'Ни один маршрут не назначен.',
             parse_mode=ParseMode.HTML)
-
-    await controlPanel(callback)
 
 
 # Working with routes
-async def chooseWayCreateRoute(callback: types.CallbackQuery):
+async def chooseWayCreateRoute(callback: types.CallbackQuery, state='*'):
+    await state.finish()
     await bot.delete_message(callback.from_user.id, callback.message.message_id)
 
     inkb = types.InlineKeyboardMarkup(row_width=1)
@@ -321,7 +356,7 @@ async def recordAddressRoute(message: types.Message, state: FSMContext):
             parse_mode=ParseMode.HTML
         )
         await state.finish()
-        await controlPanel(message)
+        await controlPanel(message, state=None)
 
 
 ## Create route using excel
@@ -374,7 +409,7 @@ async def insertRouteExcel(message: types.Message, state: FSMContext):
                                         text=message_text
                                         )
                 
-                await controlPanel()
+                await controlPanel(state=None)
             else:
                 await state.finish()
                 message_text = 'Такой маршрут уже существует. Пожалуйста, отправьте другой маршрут.'
@@ -397,19 +432,19 @@ async def insertRouteExcel(message: types.Message, state: FSMContext):
                                     )
 
 
-## Set route
+# Set route
 async def setRoute(callback: types.CallbackQuery, state=None):
     await state.finish()
     await SettingRoute.routes.set()
 
     routes = await db.getRoutes()
-    file_name = f'''tmp{hash('tmp')}'''
+    file_name = f'''tmp{str(hash('tmp'))}'''
 
     routes.to_excel(f'''./bot/documents/{file_name}.xlsx''', index=False)
 
     message_text = 'Пожалуйста: \n1) Откройте файл \n2) Выбирите «ID» маршрута \n3) Введите «ID» маршрута'
     inkb = types.InlineKeyboardMarkup(row_width=1)
-    buttons = [types.InlineKeyboardButton(text='Отмена', callback_data='cancel')]
+    buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelRoute')]
     await bot.send_document(chat_id=callback.from_user.id,
                             document=InputFile(f'''./bot/documents/{file_name}.xlsx'''),
                             caption=message_text,
@@ -429,14 +464,18 @@ async def chooseDriver(message: types.Message, state: FSMContext):
     try:
         async with state.proxy() as data:
             if not int(message.text) in list(data['routes'].id):
+
+                inkb = types.InlineKeyboardMarkup(row_width=1)
+                buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelRoute')]
+
                 await bot.send_message(
                     chat_id=message.from_user.id,
-                    text='Не верный «ID» маршрута. \nПовторно введите «ID» маршрута.'
+                    text='Не верный «ID» маршрута. \nПовторно введите «ID» маршрута.',
+                    reply_markup=inkb.add(*buttons)
                 )
-                #await chooseDriver(message, state)
+                await chooseDriver()
             else:
                 data['id_route'] = int(message.text)
-                print(data)
 
         drivers = await db.getDrivers()
         if not drivers.empty:
@@ -449,7 +488,7 @@ async def chooseDriver(message: types.Message, state: FSMContext):
 
             for x in drivers.to_dict('records'):
                 buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['name']} {x['patronymic']}''', callback_data=str(x['id'])))
-            buttons.append(types.InlineKeyboardButton(text='Отмена', callback_data='cancel'))
+            buttons.append(types.InlineKeyboardButton(text='Назад', callback_data='controlPanelRoute'))
 
             await bot.send_message(
                 chat_id=message.from_user.id,
@@ -463,16 +502,19 @@ async def chooseDriver(message: types.Message, state: FSMContext):
                 'На данный момент нет ни одного водителя.'
             )
             await state.finish()
-            await controlPanel(message)
 
     except ValueError:
+
+        inkb = types.InlineKeyboardMarkup(row_width=1)
+        buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelRoute')]
 
         await bot.send_message(
             chat_id=message.from_user.id,
             text='Введите <b>ЧИСЛО</b> без пробелов или спецсимволов.',
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
+            reply_markup=inkb.add(*buttons)
         )
-        #await chooseDriver(message)
+        await chooseDriver()
 
     await SettingRoute.next()
 
@@ -504,13 +546,97 @@ async def endSetRoute(callback: types.CallbackQuery, state: FSMContext):
         )
 
     await state.finish()
-    await controlPanel(callback)
+    await controlPanel(callback, state=None)
+
+
+# Delete route
+async def deleteRoute(callback: types.CallbackQuery, state=None):
+    await state.finish()
+    
+    routes = await db.getRoutes()
+    file_name = f'''tmp{str(hash('tmp'))}'''
+
+    routes.to_excel(f'''./bot/documents/{file_name}.xlsx''', index=False)
+
+    message_text = 'Пожалуйста: \n1) Откройте файл \n2) Выбирите «ID» маршрута \n3) Введите «ID» маршрута'
+    inkb = types.InlineKeyboardMarkup(row_width=1)
+    buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelRoute')]
+    await bot.send_document(chat_id=callback.from_user.id,
+                            document=InputFile(f'''./bot/documents/{file_name}.xlsx'''),
+                            caption=message_text,
+                            reply_markup=inkb.add(*buttons)
+                            )
+
+    await DeleteRoute.id.set()
+
+    os.remove(f'''./bot/documents/{file_name}.xlsx''')
+
+
+async def finishDeleteRoute(message: types.Message, state: FSMContext):
+    routes = await db.getRoutes()
+    try:
+        if not int(message.text) in list(routes['id']):
+
+            inkb = types.InlineKeyboardMarkup(row_width=1)
+            buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelRoute')]
+
+            await bot.send_message(
+                chat_id=message.from_user.id,
+                text='Не верный «ID» маршрута. \nПовторно введите «ID» маршрута.',
+                reply_markup=inkb.add(*buttons)
+            )
+            await finishDeleteRoute()
+        else:
+            await db.deleteRoute({'id': int(message.text)})
+            await bot.send_message(
+                chat_id=message.from_user.id,
+                text=f'''Маршрут №{message.text} удален.'''
+            )
+
+    except ValueError:
+
+        inkb = types.InlineKeyboardMarkup(row_width=1)
+        buttons = [types.InlineKeyboardButton(text='Назад', callback_data='controlPanelRoute')]
+
+        await bot.send_message(
+            chat_id=message.from_user.id,
+            text='Введите <b>ЧИСЛО</b> без пробелов или спецсимволов.',
+            parse_mode=ParseMode.HTML,
+            reply_markup=inkb.add(*buttons)
+        )
+        await finishDeleteRoute()
+
+    await state.finish()
+
+
+# Create reports
+async def createReport(callback: types.CallbackQuery):
+    routes = await db.getAllRoute()
+    if not routes.empty:
+        routes = routes.drop(columns=['id', 'id_user'])
+
+        file_name = f'''tmp{str(hash('tmp'))}'''
+
+        routes.rename(columns=names).to_excel(f'''./bot/documents/{file_name}.xlsx''', index=False)
+
+        message_text = 'Отчет о всех поездках.'
+        await bot.send_document(chat_id=callback.from_user.id,
+                                document=InputFile(f'''./bot/documents/{file_name}.xlsx'''),
+                                caption=message_text
+                                )
+
+        os.remove(f'''./bot/documents/{file_name}.xlsx''')
+    else:
+        message_text = 'Не совершено ни одной поездки.'
+        await bot.send_message(chat_id=callback.from_user.id,
+                                text=message_text
+                                )
 
 
 def register_handlers_clients(dp: Dispatcher):
-    dp.register_callback_query_handler(controlPanel, Text(equals='controlPanel', ignore_case=True))
-    dp.register_callback_query_handler(controlPanelRoute, Text(equals='controlPanelRoute', ignore_case=True))
-    dp.register_callback_query_handler(controlPanelViewCatalog, Text(equals='controlPanelViewCatalog', ignore_case=True))
+    dp.register_callback_query_handler(controlPanel, Text(equals='controlPanel', ignore_case=True), state='*')
+    dp.register_callback_query_handler(controlPanelRoute, Text(equals='controlPanelRoute', ignore_case=True), state='*')
+    dp.register_callback_query_handler(controlPanelViewCatalog, Text(equals='controlPanelViewCatalog', ignore_case=True), state='*')
     
 
     dp.register_callback_query_handler(approveRegistration, Text(equals='approveRegistration', ignore_case=True),state=None)
@@ -523,7 +649,7 @@ def register_handlers_clients(dp: Dispatcher):
     dp.register_callback_query_handler(routesListDrivers, Text(equals='routesListDrivers', ignore_case=True))
 
 
-    dp.register_callback_query_handler(chooseWayCreateRoute, Text(equals='chooseWayCreateRoute', ignore_case=True))
+    dp.register_callback_query_handler(chooseWayCreateRoute, Text(equals='chooseWayCreateRoute', ignore_case=True), state='*')
 
     dp.register_callback_query_handler(createRoute, Text(equals='createRoute', ignore_case=True), state=None)
     dp.register_message_handler(recordLengthRoute, content_types=['text'], state=Route.length)
@@ -535,3 +661,9 @@ def register_handlers_clients(dp: Dispatcher):
     dp.register_callback_query_handler(setRoute, Text(equals='setRoute', ignore_case=True))
     dp.register_message_handler(chooseDriver, content_types=['text'], state=SettingRoute.id_route)
     dp.register_callback_query_handler(endSetRoute, state=SettingRoute.id_driver)
+
+    dp.register_callback_query_handler(deleteRoute, Text(equals='deleteRoute', ignore_case=True), state=None)
+    dp.register_message_handler(finishDeleteRoute, content_types=['text'], state=DeleteRoute.id)
+
+
+    dp.register_callback_query_handler(createReport, Text(equals='createReport', ignore_case=True))

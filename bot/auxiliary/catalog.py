@@ -1,6 +1,9 @@
 names = {
+    'surname': 'Фамилия', 
+    'name': 'Имя',
+    'patronymic': 'Отчество',
     'id_route': 'Номер маршрута',
-    'position': '?',
+    'position': 'Номер точки',
     'date_leaving': 'Дата выезда',
     'time_leaving': 'Время выезда',
     'date_arriving': 'Дата приезда',

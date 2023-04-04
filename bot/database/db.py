@@ -169,7 +169,7 @@ async def getRoutes():
 
 
 async def getCatalogRoute():
-    return (pd.read_sql(''' select use.surname, use.name, use.second_name, step.route from (select cat.driver, rou.route from ((select * from logistic.catalog_routes) as cat inner join logistic.routes as rou on (cat.route=rou.id))) as step inner join logistic.users as use on (step.driver=use.id) ''', conn))
+    return (pd.read_sql(''' select use.surname, use.name, use.patronymic, step.route from (select cat.driver, rou.route from ((select * from logistic.catalog_routes) as cat inner join logistic.routes as rou on (cat.route=rou.id))) as step inner join logistic.users as use on (step.driver=use.id) ''', conn))
 
 
 async def getAttachedRoute(id):
@@ -189,6 +189,14 @@ async def getOneRecordRoute(df: dict):
     right join (select * from logistic.list_rides where "date_leaving" = '{df['date']}' and "id_route" = '{df['route']}' and "id"={df['id']}) as listRoutes 
     on (initials.id_user=listRoutes.id_user) '''
 
+    return (pd.read_sql(query, conn))
+
+
+async def getAllRoute():
+    query = f''' select * from (select id as id_user, surname, name, patronymic from logistic.users) as initials 
+                    right join (select * from logistic.list_rides) as listRoutes 
+                    on (initials.id_user=listRoutes.id_user) '''
+    
     return (pd.read_sql(query, conn))
 
 
