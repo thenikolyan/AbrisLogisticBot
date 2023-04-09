@@ -79,7 +79,7 @@ async def viewRoute(callback: types.CallbackQuery, state: FSMContext):
 
 
         route = '\n'.join(data['route'].to_list)
-        message_text = f'''Ваш маршрут №{data['df']['id_route']}.\n\nВаши пункты назначения:\n{route}.'''
+        message_text = f'''Ваш маршрут №{data['df']['id_route']}.\n\nВаш маршрут:\n{route}.'''
         message_text_for_admin = f'''Водитель: {data['df']['surname']} {data['df']['name']} {data['df']['patronymic']}, начал поездку по маршруту №{data['df']['id_route']} ({route[0]} -> {route[-1]})'''
 
 
@@ -223,7 +223,7 @@ async def getAct(message: types.Message, state: FSMContext):
         types.KeyboardButton(text='Отмена')
     ]
 
-    message_text = f'''Спасибо!. \nОтправьте фото ТРН'''
+    message_text = f'''Спасибо! \nОтправьте фото ТРН'''
     await bot.send_message(
         chat_id=message.from_user.id,
         text=message_text,
@@ -257,7 +257,7 @@ async def getTrn(message: types.Message, state: FSMContext):
         types.KeyboardButton(text='Отмена')
     ]
 
-    message_text = f'''Спасибо!. \nОтправьте фото накладной'''
+    message_text = f'''Спасибо! \nОтправьте фото накладной'''
     await bot.send_message(
         chat_id=message.from_user.id,
         text=message_text,
@@ -324,7 +324,7 @@ async def finishRoute(message: types.Message, state: FSMContext):
 
     await bot.send_message(
         chat_id=message.from_user.id,
-        text='Поздравляем, вы завершили маршрут!',
+        text='Поздравляем, вы завершили маршрут! \nНажмите на /start, чтобы посмотреть список открытых маршрутов.',
         parse_mode=ParseMode.HTML,
         reply_markup=ReplyKeyboardRemove(),
     )

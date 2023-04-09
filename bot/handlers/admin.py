@@ -527,7 +527,7 @@ async def endSetRoute(callback: types.CallbackQuery, state: FSMContext):
     try:
         await db.insertRouteCatalog({'driver': data['id_driver'], 'route': data['id_route']})
         message_text_for_admin = 'Маршрут назначен.'
-        message_text = 'Вам назначен новый маршрут.'
+        message_text = 'Вам назначен новый маршрут. Нажмите /start'
 
         await bot.send_message(
             chat_id=callback.from_user.id,
