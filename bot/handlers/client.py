@@ -206,6 +206,16 @@ async def getAct(message: types.Message, state: FSMContext):
         async with state.proxy() as data:
 
             data['df']['act'] = 'no photo'
+            fio = data['df']['surname'] + ' ' + data['df']['name']
+            admins = data['admins']
+
+        message_text_for_admin = f'{fio} не выложил фото Акта'
+        for user in admins:
+            await bot.send_message(
+                chat_id=user,
+                text=message_text_for_admin,
+                parse_mode=ParseMode.HTML
+            )
 
     else:
 
@@ -215,6 +225,16 @@ async def getAct(message: types.Message, state: FSMContext):
             name = rf'\{path}\{fio}\acts\act_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
             await message.photo[-1].download(name)
             data['df']['act'] = name
+
+            admins = data['admins']
+
+        message_text_for_admin = f'{fio}  выложил фото Акта'
+        for user in admins:
+            await bot.send_message(
+                chat_id=user,
+                text=message_text_for_admin,
+                parse_mode=ParseMode.HTML
+            )
 
 
     inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
@@ -240,6 +260,16 @@ async def getTrn(message: types.Message, state: FSMContext):
         async with state.proxy() as data:
 
             data['df']['trn'] = 'no photo'
+            fio = data['df']['surname'] + ' ' + data['df']['name']
+            admins = data['admins']
+
+        message_text_for_admin = f'{fio} не выложил фото ТРН'
+        for user in admins:
+            await bot.send_message(
+                chat_id=user,
+                text=message_text_for_admin,
+                parse_mode=ParseMode.HTML
+            )
 
     else:
 
@@ -249,6 +279,15 @@ async def getTrn(message: types.Message, state: FSMContext):
             name = rf'\{path}\{fio}\trns\trn_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
             await message.photo[-1].download(name)
             data['df']['trn'] = name
+            admins = data['admins']
+
+        message_text_for_admin = f'{fio} выложил фото ТРН'
+        for user in admins:
+            await bot.send_message(
+                chat_id=user,
+                text=message_text_for_admin,
+                parse_mode=ParseMode.HTML
+            )
 
 
     inkb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True, one_time_keyboard=True)
@@ -272,6 +311,17 @@ async def getConsignment(message: types.Message, state: FSMContext):
     if message.content_type == 'text':
         async with state.proxy() as data:
             data['df']['consignment'] = 'no photo'
+            admins = data['admins']
+            fio = data['df']['surname'] + ' ' + data['df']['name']
+
+        message_text_for_admin = f'{fio} не выложил фото заключения'
+        for user in admins:
+            await bot.send_message(
+                chat_id=user,
+                text=message_text_for_admin,
+                parse_mode=ParseMode.HTML
+            )
+
     else:
 
         async with state.proxy() as data:
@@ -280,6 +330,16 @@ async def getConsignment(message: types.Message, state: FSMContext):
             name = rf'\{path}\{fio}\consignments\consignment_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
             await message.photo[-1].download(name)
             data['df']['consignment'] = name
+            admins = data['admins']
+
+
+        message_text_for_admin = f'{fio} выложил фото заключения'
+        for user in admins:
+            await bot.send_message(
+                chat_id=user,
+                text=message_text_for_admin,
+                parse_mode=ParseMode.HTML
+            )
 
             
 

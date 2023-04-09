@@ -192,6 +192,7 @@ async def getOneRecordRoute(df: dict):
     return (pd.read_sql(query, conn))
 
 
+
 async def getAllRoute():
     query = f''' select * from (select id as id_user, surname, name, patronymic from logistic.users) as initials 
                     right join (select * from logistic.list_rides) as listRoutes 
