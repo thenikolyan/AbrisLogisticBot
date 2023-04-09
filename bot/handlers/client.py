@@ -314,7 +314,7 @@ async def getConsignment(message: types.Message, state: FSMContext):
             admins = data['admins']
             fio = data['df']['surname'] + ' ' + data['df']['name']
 
-        message_text_for_admin = f'{fio} не выложил фото заключения'
+        message_text_for_admin = f'{fio} не выложил фото накдладной'
         for user in admins:
             await bot.send_message(
                 chat_id=user,
@@ -333,7 +333,7 @@ async def getConsignment(message: types.Message, state: FSMContext):
             admins = data['admins']
 
 
-        message_text_for_admin = f'{fio} выложил фото заключения'
+        message_text_for_admin = f'{fio} выложил фото накдладной'
         for user in admins:
             await bot.send_message(
                 chat_id=user,
