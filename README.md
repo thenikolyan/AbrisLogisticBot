@@ -6,6 +6,7 @@ The main idea of the bot is to automate the transfer of documents and collect st
 The bot is able to request a geo-location, save photos, and also notifies the administrators (logisticians) of the company.
 
 ## Registration
+At the very beginning, the user must register in the bot to become an administrator or driver. Next, you will receive a notification to the existing administrators about the confirmation of registration, and after reviewing the application, the user will receive a message about his role.
 
 ## Users
 The structure of the user database supports 4 roles: admin, driver, clown, unauthorized, further details about each.
