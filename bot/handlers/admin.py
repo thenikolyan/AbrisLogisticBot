@@ -17,6 +17,7 @@ from database import db
 
 
 class Role(StatesGroup):
+    fio = State()
     id = State()
     role = State()
     end = State()
@@ -117,7 +118,7 @@ async def approveRegistration(callback: types.CallbackQuery, state=None):
 
         for x in users.to_dict('records'):
             buttons.append(types.InlineKeyboardButton(text=f'''{x['surname']} {x['name']} {x['patronymic']}''',
-                                                      callback_data=str(x['id'])))
+                                                      callback_data=str(x['id']) + f'''~{x['surname']} {x['name']}'''))
         buttons.append(types.InlineKeyboardButton(text='Отмена', callback_data='cancel'))
 
         await bot.send_message(
@@ -141,7 +142,7 @@ async def setRole(callback: types.CallbackQuery, state: FSMContext):
     await bot.delete_message(callback.from_user.id, callback.message.message_id)
 
     async with state.proxy() as data:
-        data['id'] = callback.data
+        data['id'], data['fio'] = callback.data.split('~')
 
     message_text = 'Пожалуйста, выберите роль.'
 
@@ -166,11 +167,30 @@ async def endRole(callback: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
         data['role'] = callback.data
 
-    message_text = f'''Вам присвоена роль «<b>{data['role']}</b>». \nНажмите /start для продолжения работы.'''
-    message_text_for_admin = f'''Роль «<b>{data['role']}</b>» успешно присвоена.'''
+    if data['role'] == 'driver':
+        path = os.getenv('path_', 'default')
+        dir = rf'''\{path}\{data['fio']}'''
+        if not os.path.isdir(dir):
+            os.mkdir(dir)
+        if not os.path.isdir(dir+fr'\acts'):
+            os.mkdir(dir+fr'\acts')
+        if not os.path.isdir(dir+fr'\trns'):
+            os.mkdir(dir+fr'\trns')
+        if not os.path.isdir(dir+fr'\consignments'):
+            os.mkdir(dir+fr'\consignments')
+        if not os.path.isdir(dir+fr'\records'):
+            os.mkdir(dir+fr'\records')
+
+        message_text = f'''Вам присвоена роль «<b>Водитель</b>». \nНажмите /start для продолжения работы.'''
+        message_text_for_admin = f'''Роль «<b>Водитель</b>» успешно присвоена.'''
+    elif data['role'] == 'admin':
+        message_text = f'''Вам присвоена роль «<b>Администратор</b>». \nНажмите /start для продолжения работы.'''
+        message_text_for_admin = f'''Роль «<b>Администратор</b>» успешно присвоена.'''
+
+    
 
     await db.updateUserRole({'id': int(data['id']), 'role': data['role']})
-
+    
     await bot.send_message(
         int(data['id']),
         message_text,

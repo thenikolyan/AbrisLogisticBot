@@ -222,7 +222,14 @@ async def getAct(message: types.Message, state: FSMContext):
         async with state.proxy() as data:
             fio = data['df']['surname'] + ' ' + data['df']['name']
             path = os.getenv('path_', 'default')
-            name = rf'\{path}\{fio}\acts\act_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+            dir = rf'''\{path}\{fio}'''
+            name = rf'{dir}\acts\act_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+            
+            if not os.path.isdir(dir):
+                os.mkdir(dir)
+            if not os.path.isdir(dir+fr'\acts'):
+                os.mkdir(dir+fr'\acts')
+
             await message.photo[-1].download(name)
             data['df']['act'] = name
 
@@ -276,7 +283,14 @@ async def getTrn(message: types.Message, state: FSMContext):
         async with state.proxy() as data:
             fio = data['df']['surname'] + ' ' + data['df']['name']
             path = os.getenv('path_', 'default')
-            name = rf'\{path}\{fio}\trns\trn_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+            dir = rf'\{path}\{fio}'
+            name = rf'{dir}\trns\trn_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+            
+            if not os.path.isdir(dir):
+                os.mkdir(dir)
+            if not os.path.isdir(dir+fr'\trns'):
+                os.mkdir(dir+fr'\trns')
+
             await message.photo[-1].download(name)
             data['df']['trn'] = name
             admins = data['admins']
@@ -327,7 +341,14 @@ async def getConsignment(message: types.Message, state: FSMContext):
         async with state.proxy() as data:
             fio = data['df']['surname'] + ' ' + data['df']['name']
             path = os.getenv('path_', 'default')
-            name = rf'\{path}\{fio}\consignments\consignment_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+            dir = rf'\{path}\{fio}'
+            name = rf'{dir}\consignments\consignment_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.jpg'
+
+            if not os.path.isdir(dir):
+                os.mkdir(dir)
+            if not os.path.isdir(dir+fr'\consignments'):
+                os.mkdir(dir+fr'\consignments')
+
             await message.photo[-1].download(name)
             data['df']['consignment'] = name
             admins = data['admins']
@@ -402,16 +423,19 @@ async def finishRoute(message: types.Message, state: FSMContext):
 
         fio = data['df']['surname'] + ' ' + data['df']['name']
         path = os.getenv('path_', 'default')
-        dir = rf'\{path}\{fio}\records'
+        dir = rf'\{path}\{fio}'
         name = rf'''\record_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.xlsx'''
 
         df = await db.getOneRecordRoute({'user': data['df']['id_user'], 'date': data['df']['date_leaving'], 
                                          'route': data['df']['id_route'], 'id': data['df']['id']})
-        
-        if not os.path.isdir(dir):
-            os.mkdir(dir)
 
         df = df.drop(columns=['id', 'id_user'])
+
+        if not os.path.isdir(dir):
+                os.mkdir(dir)
+        if not os.path.isdir(dir+fr'\records'):
+            os.mkdir(dir+fr'\records')
+
         df.rename(columns=names).to_excel(dir+name, index=False)
     
     await state.finish()
