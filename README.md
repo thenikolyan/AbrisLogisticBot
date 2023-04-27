@@ -51,3 +51,6 @@ The driver can only drive along the route.
 The driver's trip data is transmitted to the administrator: notifications about departure, arrival and uploading photos.
 
 Also, all photos and the train report are uploaded to a separate directory on the server.
+
+# Schema of bot
+![Untitled](https://user-images.githubusercontent.com/48589418/234872432-cbe8dedc-fa56-4521-9917-fe843e867909.jpg)
