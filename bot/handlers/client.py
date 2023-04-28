@@ -424,7 +424,7 @@ async def finishRoute(message: types.Message, state: FSMContext):
         fio = data['df']['surname'] + ' ' + data['df']['name']
         path = os.getenv('path_', 'default')
         dir = rf'\{path}\{fio}'
-        name = rf'''\record_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.xlsx'''
+        name = rf'''\records\record_{str(message.from_user.id)}_{dt.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.xlsx'''
 
         df = await db.getOneRecordRoute({'user': data['df']['id_user'], 'date': data['df']['date_leaving'], 
                                          'route': data['df']['id_route'], 'id': data['df']['id']})
